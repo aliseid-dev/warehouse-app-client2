@@ -12,7 +12,13 @@ export default function ProductList() {
         id: doc.id,
         ...doc.data(),
       }));
-      setProducts(items);
+
+      // ✅ Sort alphabetically by name
+      const sortedItems = items.sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+
+      setProducts(sortedItems);
     });
 
     return () => unsubscribe();
@@ -33,10 +39,7 @@ export default function ProductList() {
             </thead>
             <tbody>
               {products.map((p) => (
-                <tr
-                  key={p.id}
-                  className={p.quantity === 0 ? "out-of-stock" : ""}
-                >
+                <tr key={p.id} className={p.quantity === 0 ? "out-of-stock" : ""}>
                   <td>{p.name}</td>
                   <td>{p.price}</td>
                   <td>

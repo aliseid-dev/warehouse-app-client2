@@ -320,7 +320,7 @@ export default function SalesPage() {
                         <td>{s.customerName}</td>
                         <td>{s.productName}</td>
                         <td>{s.quantity}</td>
-                        <td>{s.total}ETB</td>
+                        <td>{s.total} ETB</td>
                         <td>
                           <ActionMenu
                             sale={s}
@@ -375,7 +375,7 @@ export default function SalesPage() {
               <td>{s.customerName || "—"}</td>
               <td>{s.productName || "—"}</td>
               <td>{s.quantity || 0}</td>
-              <td>{s.total?.toFixed(2) || "0.00"}ETB</td>
+              <td>{s.total?.toFixed(2) || "0.00"} ETB</td>
               <td>
                 {s.timestamp?.seconds
                   ? new Date(s.timestamp.seconds * 1000).toLocaleDateString(

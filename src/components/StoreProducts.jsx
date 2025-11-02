@@ -12,8 +12,15 @@ const StoreProducts = () => {
         id: doc.id,
         ...doc.data(),
       }));
-      setProducts(items);
+
+      // ✅ Sort alphabetically by name
+      const sortedItems = items.sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+
+      setProducts(sortedItems);
     });
+
     return () => unsub();
   }, []);
 
