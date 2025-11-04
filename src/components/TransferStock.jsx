@@ -17,22 +17,34 @@ import "../styles/TransferStock.css";
 
 export default function TransferStock() {
   const [products, setProducts] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState("");
+  const [search, setSearch] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantity, setQuantity] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [recentTransfers, setRecentTransfers] = useState([]);
 
-  // Fetch warehouse products for dropdown
+  // Fetch warehouse products
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
       const items = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((item) => item.quantity > 0); // ✅ Hide products with 0 qty
+        .filter((item) => item.quantity > 0);
       setProducts(items);
+      setFilteredProducts(items);
     });
     return () => unsubscribe();
   }, []);
+
+  // Filter live as user types
+  useEffect(() => {
+    const query = search.toLowerCase();
+    const results = products.filter((p) =>
+      p.name.toLowerCase().includes(query)
+    );
+    setFilteredProducts(results);
+  }, [search, products]);
 
   // Fetch recent transfer history
   useEffect(() => {
@@ -62,8 +74,7 @@ export default function TransferStock() {
     setLoading(true);
 
     try {
-      // Get warehouse product
-      const productRef = doc(db, "products", selectedProduct);
+      const productRef = doc(db, "products", selectedProduct.id);
       const productSnap = await getDoc(productRef);
 
       if (!productSnap.exists()) {
@@ -84,7 +95,7 @@ export default function TransferStock() {
       await updateDoc(productRef, { quantity: product.quantity - qty });
 
       // Add/update in storeProducts
-      const storeRef = doc(db, "storeProducts", selectedProduct);
+      const storeRef = doc(db, "storeProducts", selectedProduct.id);
       const storeSnap = await getDoc(storeRef);
       const storeQuantity = storeSnap.exists() ? storeSnap.data().quantity : 0;
 
@@ -101,14 +112,15 @@ export default function TransferStock() {
 
       // Log transfer history
       await setDoc(doc(collection(db, "transfer_history")), {
-        productId: selectedProduct,
+        productId: selectedProduct.id,
         productName: product.name,
         quantity: qty,
         timestamp: serverTimestamp(),
       });
 
       setMessage({ type: "success", text: "✅ Stock transferred successfully!" });
-      setSelectedProduct("");
+      setSearch("");
+      setSelectedProduct(null);
       setQuantity("");
     } catch (err) {
       console.error(err);
@@ -120,7 +132,6 @@ export default function TransferStock() {
 
   return (
     <div className="transfer-stock-page">
-      {/* ✅ Message box always visible */}
       {message && (
         <MessageBox
           message={message.text}
@@ -131,17 +142,40 @@ export default function TransferStock() {
 
       {/* Transfer Form */}
       <form className="transfer-form" onSubmit={handleTransfer}>
-        <select
-          value={selectedProduct}
-          onChange={(e) => setSelectedProduct(e.target.value)}
-        >
-          <option value="">Select Warehouse Product</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} ({p.quantity})
-            </option>
-          ))}
-        </select>
+        <label className="autocomplete-label">
+          Warehouse Product
+          <input
+            type="text"
+            placeholder="Search product..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSelectedProduct(null);
+            }}
+          />
+          {search && filteredProducts.length > 0 && (
+            <ul className="suggestion-list">
+              {filteredProducts.map((p) => (
+                <li
+                  key={p.id}
+                  onClick={() => {
+                    setSelectedProduct(p);
+                    setSearch(p.name);
+                    setFilteredProducts([]);
+                  }}
+                >
+                  {p.name} ({p.quantity})
+                </li>
+              ))}
+            </ul>
+          )}
+          {search && filteredProducts.length === 0 && (
+            <ul className="suggestion-list">
+              <li className="no-result">No product found</li>
+            </ul>
+          )}
+        </label>
+
 
         <input
           type="number"
@@ -155,7 +189,7 @@ export default function TransferStock() {
         </button>
       </form>
 
-      {/* ✅ Recent Transfers — mobile-friendly cards */}
+      {/* Recent Transfers */}
       <div className="recent-transfers">
         <h3>Recent Transfers</h3>
         {recentTransfers.length > 0 ? (
