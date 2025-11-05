@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   updateDoc,
   setDoc,
   onSnapshot,
@@ -60,75 +61,89 @@ export default function TransferStock() {
   }, []);
 
   const handleTransfer = async (e) => {
-    e.preventDefault();
-    const qty = Number(quantity);
+  e.preventDefault();
+  const qty = Number(quantity);
 
-    if (!selectedProduct || isNaN(qty) || qty <= 0) {
-      setMessage({
-        type: "error",
-        text: "Please select a product and enter a valid quantity",
-      });
+  if (!selectedProduct || isNaN(qty) || qty <= 0) {
+    setMessage({
+      type: "error",
+      text: "Please select a product and enter a valid quantity",
+    });
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // Get warehouse product
+    const productRef = doc(db, "products", selectedProduct.id);
+    const productSnap = await getDoc(productRef);
+
+    if (!productSnap.exists()) {
+      setMessage({ type: "error", text: "Product not found in warehouse" });
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    const product = productSnap.data();
 
-    try {
-      const productRef = doc(db, "products", selectedProduct.id);
-      const productSnap = await getDoc(productRef);
-
-      if (!productSnap.exists()) {
-        setMessage({ type: "error", text: "Product not found in warehouse" });
-        setLoading(false);
-        return;
-      }
-
-      const product = productSnap.data();
-
-      if (qty > product.quantity) {
-        setMessage({ type: "error", text: "Not enough stock in warehouse" });
-        setLoading(false);
-        return;
-      }
-
-      // Decrease warehouse stock
-      await updateDoc(productRef, { quantity: product.quantity - qty });
-
-      // Add/update in storeProducts
-      const storeRef = doc(db, "storeProducts", selectedProduct.id);
-      const storeSnap = await getDoc(storeRef);
-      const storeQuantity = storeSnap.exists() ? storeSnap.data().quantity : 0;
-
-      await setDoc(
-        storeRef,
-        {
-          name: product.name,
-          price: product.price ?? 0,
-          quantity: storeQuantity + qty,
-          transferredAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      // Log transfer history
-      await setDoc(doc(collection(db, "transfer_history")), {
-        productId: selectedProduct.id,
-        productName: product.name,
-        quantity: qty,
-        timestamp: serverTimestamp(),
-      });
-
-      setMessage({ type: "success", text: "✅ Stock transferred successfully!" });
-      setSearch("");
-      setSelectedProduct(null);
-      setQuantity("");
-    } catch (err) {
-      console.error(err);
-      setMessage({ type: "error", text: "❌ Transfer failed" });
+    if (qty > product.quantity) {
+      setMessage({ type: "error", text: "Not enough stock in warehouse" });
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
-  };
+    // ✅ Decrease warehouse stock
+    await updateDoc(productRef, { quantity: product.quantity - qty });
+
+    // ✅ Check if store already has this product by name
+    const storeProductsRef = collection(db, "storeProducts");
+    const storeSnapshot = await onSnapshot(storeProductsRef, () => {}); // just to ensure real-time cache is ready
+
+    const qStore = query(storeProductsRef);
+    const snapshot = await getDocs(qStore);
+    const existingStoreProduct = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .find(
+        (p) => p.name.toLowerCase() === product.name.toLowerCase()
+      );
+
+    if (existingStoreProduct) {
+      // ✅ Update existing store product quantity
+      const storeRef = doc(db, "storeProducts", existingStoreProduct.id);
+      await updateDoc(storeRef, {
+        quantity: existingStoreProduct.quantity + qty,
+        transferredAt: serverTimestamp(),
+      });
+    } else {
+      // ✅ Create new product in store
+      await setDoc(doc(collection(db, "storeProducts")), {
+        name: product.name,
+        price: product.price ?? 0,
+        quantity: qty,
+        transferredAt: serverTimestamp(),
+      });
+    }
+
+    // ✅ Log transfer history
+    await setDoc(doc(collection(db, "transfer_history")), {
+      productId: selectedProduct.id,
+      productName: product.name,
+      quantity: qty,
+      timestamp: serverTimestamp(),
+    });
+
+    setMessage({ type: "success", text: "✅ Stock transferred successfully!" });
+    setSearch("");
+    setSelectedProduct(null);
+    setQuantity("");
+  } catch (err) {
+    console.error(err);
+    setMessage({ type: "error", text: "❌ Transfer failed" });
+  }
+
+  setLoading(false);
+};
 
   return (
     <div className="transfer-stock-page">
