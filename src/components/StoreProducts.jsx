@@ -61,7 +61,7 @@ const StoreProducts = () => {
     <div className="store-products-container">
       <h2>Store Products</h2>
 
-      🟩 Temporary Add Product Form
+      {/* 🟩 Temporary Add Product Form
       <form onSubmit={handleAddProduct} className="quick-add-form">
         <input
           type="text"
@@ -91,7 +91,7 @@ const StoreProducts = () => {
         <button type="submit" disabled={loading}>
           {loading ? "Adding..." : "Add Product"}
         </button>
-      </form>
+      </form> */}
 
       {products.length > 0 ? (
         <div className="table-wrapper">
