@@ -32,9 +32,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Logout Button */}
-      <h1 className="text-4xl font-bold text-red-500">
-  Tailwind is working!
-</h1>
+    
       <div className="logout-container">
         <button className="logout-btn" onClick={handleLogout}>
           Log Out
