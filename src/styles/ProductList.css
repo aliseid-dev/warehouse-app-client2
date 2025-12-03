@@ -81,3 +81,47 @@
   font-size: 14px;
   margin-top: 20px;
 }
+/* Category Filter Container */
+.category-filter {
+  display: flex;
+  flex-direction: row;        /* always side-by-side */
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+/* Dropdown */
+.category-filter select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+  width: 150px;                  
+}
+.category-left {
+  display: flex;
+  justify-content: flex-start; 
+  align-items: center;
+  flex: 1;             /* keeps it on the left */
+}
+/* Add Category Button */
+.add-category-btn {
+  width: 32px;
+  height: 32px;
+  background-color: #626eef;
+  color: white;
+  border: none;
+  border-radius: 25px;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;             /* center the + */
+  align-items: left;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.add-category-btn:hover {
+  background-color: #45a049;
+}

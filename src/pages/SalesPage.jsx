@@ -18,55 +18,77 @@ import "../styles/SalesPage.css";
 import "../styles/Modal.css"; // For modal & action menu
 
 export default function SalesPage() {
-  const [source, setSource] = useState("store");
+  const [source, setSource] = useState("warehouse"); // warehouse OR storeId
   const [products, setProducts] = useState([]);
+  const [stores, setStores] = useState([]);
+
   const [selectedProduct, setSelectedProduct] = useState("");
-  const [productSearch, setProductSearch] = useState(""); // for typing/searching product
+  const [productSearch, setProductSearch] = useState("");
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
 
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [total, setTotal] = useState(0);
   const [totalManuallyEdited, setTotalManuallyEdited] = useState(false);
+
   const [customerName, setCustomerName] = useState("");
   const [tinNumber, setTinNumber] = useState("");
   const [contact, setContact] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("paid");
+
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const messageRef = useRef(null);
+
   const [sales, setSales] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
 
-  // holders for unique suggestion lists (and their setters!)
   const [uniqueNames, setUniqueNames] = useState([]);
   const [uniqueTins, setUniqueTins] = useState([]);
   const [uniqueContacts, setUniqueContacts] = useState([]);
 
-  const messageRef = useRef(null);
-
-  // Fetch products (live)
+  // load stores
   useEffect(() => {
-    const colName = source === "store" ? "storeProducts" : "products";
-    const unsubscribe = onSnapshot(collection(db, colName), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, "stores"), (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setStores(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // load products depending on source
+  useEffect(() => {
+    if (!source) return;
+
+    let colRef;
+    if (source === "warehouse") {
+      colRef = collection(db, "products");
+    } else {
+      colRef = collection(db, "stores", source, "products");
+    }
+
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const items = snapshot.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((p) => p.quantity >= 0); // keep zeros too if you want
-      // sort alphabetically
+        .filter((p) => p.quantity >= 0);
+
       items.sort((a, b) => a.name.localeCompare(b.name));
       setProducts(items);
     });
+
     return () => unsubscribe();
   }, [source]);
 
-  // Fetch sales (live) and build unique suggestion lists
+  // load sales + unique lists
   useEffect(() => {
     const q = query(collection(db, "sales"), orderBy("timestamp", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allSales = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setSales(allSales);
 
-      // Build unique lists without duplicates and without empty values
       const names = [...new Set(allSales.map((s) => s.customerName).filter(Boolean))];
       const tins = [...new Set(allSales.map((s) => s.tinNumber).filter(Boolean))];
       const contacts = [...new Set(allSales.map((s) => s.contact).filter(Boolean))];
@@ -78,7 +100,7 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, []);
 
-  // Auto-calc total when qty / price / product changes
+  // auto-calc total
   useEffect(() => {
     if (!totalManuallyEdited) {
       const prod = products.find((p) => p.id === selectedProduct);
@@ -88,36 +110,41 @@ export default function SalesPage() {
     }
   }, [selectedProduct, quantity, price, products, totalManuallyEdited]);
 
-  // Keep productSearch synced when selectedProduct changes (so selected product name shows in input)
+  // sync product name input when selectedProduct changes
   useEffect(() => {
     const prod = products.find((p) => p.id === selectedProduct);
     if (prod) {
       setProductSearch(prod.name);
       setPrice(prod.price ?? "");
-    } else {
-      // don't clear productSearch if user is typing — only if selectedProduct cleared
-      // setProductSearch("");
     }
   }, [selectedProduct, products]);
 
-  // Scroll message into view
+  // scroll message into view
   useEffect(() => {
     if (message && messageRef.current) {
       messageRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [message]);
 
-  // Handle submit - add sale
+  // Add sale handler
   const handleAddSale = async (e) => {
     e.preventDefault();
+
     if (!selectedProduct || !quantity || !customerName || total === 0) {
       setMessage({ type: "error", text: "Please fill all required fields" });
       return;
     }
 
     setLoading(true);
+
     try {
-      const productRef = doc(db, source === "store" ? "storeProducts" : "products", selectedProduct);
+      let productRef;
+      if (source === "warehouse") {
+        productRef = doc(db, "products", selectedProduct);
+      } else {
+        productRef = doc(db, "stores", source, "products", selectedProduct);
+      }
+
       const currentProduct = products.find((p) => p.id === selectedProduct);
       if (!currentProduct) throw new Error("Product not found");
 
@@ -129,7 +156,7 @@ export default function SalesPage() {
       }
 
       await addDoc(collection(db, "sales"), {
-        source,
+        source: source === "warehouse" ? "warehouse" : source,
         productId: selectedProduct,
         productName: currentProduct.name,
         quantity: Number(quantity),
@@ -139,15 +166,19 @@ export default function SalesPage() {
         tinNumber,
         contact: contact || "",
         paymentStatus,
+        paymentMethod,
         amountPaid: paymentStatus === "paid" ? Number(total) : 0,
         timestamp: new Date(),
       });
 
       await updateDoc(productRef, { quantity: remainingQty });
 
-      setMessage({ type: "success", text: `✅ Sale recorded. Remaining stock: ${remainingQty}` });
+      setMessage({
+        type: "success",
+        text: `✅ Sale recorded. Remaining stock: ${remainingQty}`,
+      });
 
-      // Reset form fields
+      // reset
       setSelectedProduct("");
       setProductSearch("");
       setQuantity("");
@@ -157,15 +188,17 @@ export default function SalesPage() {
       setTinNumber("");
       setContact("");
       setPaymentStatus("paid");
+      setPaymentMethod("cash");
       setTotalManuallyEdited(false);
     } catch (err) {
       console.error(err);
       setMessage({ type: "error", text: "❌ Failed to record sale" });
     }
+
     setLoading(false);
   };
 
-  // Confirm payment handler (existing)
+  // confirm payment
   const handleConfirmPayment = async (paymentDate) => {
     if (!selectedSale) return;
     try {
@@ -185,7 +218,7 @@ export default function SalesPage() {
 
   const unpaidSales = sales.filter((s) => s.paymentStatus === "credit");
 
-  // Product suggestion click
+  // pick product from suggestions
   const pickProduct = (p) => {
     setSelectedProduct(p.id);
     setProductSearch(p.name);
@@ -194,17 +227,14 @@ export default function SalesPage() {
     setTotalManuallyEdited(false);
   };
 
-  // When user types a customer name, auto fill tin & contact if an existing one is found
   const onCustomerChange = (value) => {
     setCustomerName(value);
-    const previous = sales.find((s) => s.customerName?.toLowerCase() === value.toLowerCase());
+    const previous = sales.find(
+      (s) => s.customerName?.toLowerCase() === value.toLowerCase()
+    );
     if (previous) {
       setTinNumber(previous.tinNumber || "");
       setContact(previous.contact || "");
-    } else {
-      // don't overwrite if user is clearing; keep current tin/contact fields
-      // setTinNumber("");
-      // setContact("");
     }
   };
 
@@ -218,108 +248,170 @@ export default function SalesPage() {
         <div className="sales-page-content">
           {message && (
             <div ref={messageRef}>
-              <MessageBox message={message.text} type={message.type} onClose={() => setMessage(null)} />
+              <MessageBox
+                message={message.text}
+                type={message.type}
+                onClose={() => setMessage(null)}
+              />
             </div>
           )}
 
-          {/* Record Sale Form */}
+          {/* Record Sale */}
           <div className="sales-card">
-            <h2>💰 Record a Sale</h2>
+            <h2>Record a Sale</h2>
+
             <form onSubmit={handleAddSale} className="sales-form" autoComplete="off">
               <div className="form-grid">
+                {/* SOURCE */}
                 <label>
-                  Source
+                  <span className="label-text">Source</span>
                   <select value={source} onChange={(e) => setSource(e.target.value)}>
-                    <option value="store">Store</option>
                     <option value="warehouse">Warehouse</option>
+                    {stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
 
-                {/* Product autocomplete input */}
-                <label className="autocomplete-label" style={{ position: "relative" }}>
-                  Product
+                {/* PRODUCT */}
+                <label className="autocomplete-label">
+                  <span className="label-text">Product</span>
+                  <div style={{ width: "100%", position: "relative" }}>
+                    <input
+                      type="text"
+                      placeholder="Search product..."
+                      value={productSearch}
+                      onChange={(e) => {
+                        setProductSearch(e.target.value);
+                        setShowProductSuggestions(true);
+                        setSelectedProduct("");
+                      }}
+                      onFocus={() => setShowProductSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowProductSuggestions(false), 160)}
+                    />
+
+                    {showProductSuggestions && productSearch && (
+                      <ul className="suggestion-list">
+                        {products
+                          .filter((p) =>
+                            p.name.toLowerCase().includes(productSearch.toLowerCase())
+                          )
+                          .slice(0, 8)
+                          .map((p) => (
+                            <li key={p.id} onClick={() => pickProduct(p)}>
+                              {p.name} ({p.quantity})
+                            </li>
+                          ))}
+
+                        {products.filter((p) =>
+                          p.name.toLowerCase().includes(productSearch.toLowerCase())
+                        ).length === 0 && <li className="no-result">No products found</li>}
+                      </ul>
+                    )}
+                  </div>
+                </label>
+
+                {/* QUANTITY */}
+                <label>
+                  <span className="label-text">Quantity</span>
                   <input
-                    type="text"
-                    placeholder="Search product..."
-                    value={productSearch}
-                    onChange={(e) => {
-                      setProductSearch(e.target.value);
-                      setShowProductSuggestions(true);
-                      // clear selectedProduct while typing
-                      setSelectedProduct("");
-                    }}
-                    onFocus={() => setShowProductSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowProductSuggestions(false), 150)} // allow click
+                    type="number"
+                    placeholder="Empty"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
                   />
-                  {/* suggestion list */}
-                  {showProductSuggestions && productSearch && (
-                    <ul className="suggestion-list">
-                      {products
-                        .filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()))
-                        .slice(0, 8)
-                        .map((p) => (
-                          <li key={p.id} onClick={() => pickProduct(p)}>
-                            {p.name} ({p.quantity})
-                          </li>
-                        ))}
-                      {products.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                        <li className="no-result">No products found</li>
-                      )}
-                    </ul>
-                  )}
                 </label>
 
+                {/* PRICE */}
                 <label>
-                  Quantity
-                  <input type="number" placeholder="Quantity" value={quantity} min="1" onChange={(e) => setQuantity(e.target.value)} />
+                  <span className="label-text">Price per Unit</span>
+                  <input
+                    type="number"
+                    placeholder="Empty"
+                    min="0"
+                    value={price}
+                    onChange={(e) => {
+                      setPrice(e.target.value);
+                      setTotalManuallyEdited(false);
+                    }}
+                  />
                 </label>
 
+                {/* TOTAL */}
                 <label>
-                  Price per Unit
-                  <input type="number" placeholder="Price" value={price} min="0" onChange={(e) => { setPrice(e.target.value); setTotalManuallyEdited(false); }} />
-                </label>
-
-                <label>
-                  Total
+                  <span className="label-text">Total</span>
                   <input type="number" value={total} readOnly />
                 </label>
 
-                {/* Customer with suggestions (no duplicates) */}
+                {/* CUSTOMER */}
                 <label>
-                  Customer Name
+                  <span className="label-text">Customer Name</span>
                   <input
                     type="text"
                     list="customerNames"
-                    placeholder="Customer Name"
+                    placeholder="Empty"
                     value={customerName}
                     onChange={(e) => onCustomerChange(e.target.value)}
                   />
                   <datalist id="customerNames">
-                    {uniqueNames.map((name, i) => <option key={i} value={name} />)}
+                    {uniqueNames.map((name, i) => (
+                      <option key={i} value={name} />
+                    ))}
                   </datalist>
                 </label>
 
+                {/* TIN */}
                 <label>
-                  TIN Number
-                  <input type="text" list="tinNumbers" placeholder="TIN Number" value={tinNumber} onChange={(e) => setTinNumber(e.target.value)} />
+                  <span className="label-text">TIN Number</span>
+                  <input
+                    type="text"
+                    list="tinNumbers"
+                    placeholder="Empty"
+                    value={tinNumber}
+                    onChange={(e) => setTinNumber(e.target.value)}
+                  />
                   <datalist id="tinNumbers">
-                    {uniqueTins.map((tin, i) => <option key={i} value={tin} />)}
+                    {uniqueTins.map((tin, i) => (
+                      <option key={i} value={tin} />
+                    ))}
                   </datalist>
                 </label>
 
+                {/* CONTACT */}
                 <label>
-                  Contact Info
-                  <input type="text" list="contactList" placeholder="Contact Info (optional)" value={contact} onChange={(e) => setContact(e.target.value)} />
+                  <span className="label-text">Contact Info</span>
+                  <input
+                    type="text"
+                    list="contactList"
+                    placeholder="Empty"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                  />
                   <datalist id="contactList">
-                    {uniqueContacts.map((c, i) => <option key={i} value={c} />)}
+                    {uniqueContacts.map((c, i) => (
+                      <option key={i} value={c} />
+                    ))}
                   </datalist>
                 </label>
 
+                {/* PAYMENT STATUS */}
                 <label>
-                  Payment Status
+                  <span className="label-text">Payment Status</span>
                   <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
                     <option value="paid">Paid</option>
                     <option value="credit">Credit</option>
+                  </select>
+                </label>
+
+                {/* PAYMENT METHOD */}
+                <label>
+                  <span className="label-text">Payment Method</span>
+                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} required>
+                    <option value="cash">Cash</option>
+                    <option value="transfer">Bank Transfer</option>
                   </select>
                 </label>
               </div>
@@ -330,7 +422,7 @@ export default function SalesPage() {
             </form>
           </div>
 
-          {/* Unpaid Sales */}
+          {/* UNPAID SALES */}
           <div className="sales-card">
             <h3>🧾 Unpaid Sales</h3>
             {unpaidSales.length > 0 ? (
@@ -372,7 +464,7 @@ export default function SalesPage() {
             )}
           </div>
 
-          {/* Payment Modal */}
+          {/* PAYMENT MODAL */}
           {modalVisible && selectedSale && (
             <PaymentModal
               visible={modalVisible}
@@ -385,9 +477,10 @@ export default function SalesPage() {
             />
           )}
 
-          {/* Recent Sales */}
+          {/* RECENT SALES */}
           <div className="sales-card">
             <h3>📊 Recent Sales</h3>
+
             {sales.length > 0 ? (
               <div className="sales-table-wrapper">
                 <table className="sales-table">
@@ -409,7 +502,10 @@ export default function SalesPage() {
                         <td>{s.total?.toFixed(2) || "0.00"} ETB</td>
                         <td>
                           {s.timestamp?.seconds
-                            ? new Date(s.timestamp.seconds * 1000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                            ? new Date(s.timestamp.seconds * 1000).toLocaleDateString(
+                                "en-GB",
+                                { day: "2-digit", month: "short", year: "numeric" }
+                              )
                             : "-"}
                         </td>
                       </tr>

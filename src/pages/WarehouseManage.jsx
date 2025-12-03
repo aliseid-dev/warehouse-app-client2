@@ -17,6 +17,7 @@ import "../styles/WarehouseManage.css";
 export default function WarehouseManage() {
   const [activeTab, setActiveTab] = useState("add");
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [history, setHistory] = useState([]);
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -25,9 +26,14 @@ export default function WarehouseManage() {
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("");
+  const [categoryId, setCategoryId] = useState("");
 
-  // fetch products
+  // autocomplete states
+  const [search, setSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [filtered, setFiltered] = useState([]);
+
+  /** Fetch products */
   useEffect(() => {
     const fetchProducts = async () => {
       const snapshot = await getDocs(collection(db, "products"));
@@ -36,7 +42,16 @@ export default function WarehouseManage() {
     fetchProducts();
   }, [loading]);
 
-  // fetch recent history
+  /** Fetch categories */
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const snapshot = await getDocs(collection(db, "categories"));
+      setCategories(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    };
+    fetchCategories();
+  }, []);
+
+  /** Fetch recent history */
   useEffect(() => {
     const fetchHistory = async () => {
       const q = query(
@@ -50,10 +65,23 @@ export default function WarehouseManage() {
     fetchHistory();
   }, [loading]);
 
-  // add new product
+  /** Autocomplete search */
+  useEffect(() => {
+    if (!search.trim()) {
+      setFiltered([]);
+      return;
+    }
+    setFiltered(
+      products.filter((p) =>
+        p.name.toLowerCase().includes(search.toLowerCase())
+      )
+    );
+  }, [search, products]);
+
+  /** Add product */
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!name || !quantity || !price)
+    if (!name || !quantity || !price || !categoryId)
       return setMessage({ text: "Please fill all fields", type: "error" });
 
     setLoading(true);
@@ -62,10 +90,10 @@ export default function WarehouseManage() {
         name,
         quantity: Number(quantity),
         price: Number(price),
+        categoryId,
         dateAdded: serverTimestamp(),
       });
 
-      // log history
       await addDoc(collection(db, "warehouse_history"), {
         action: "Added New Product",
         productName: name,
@@ -77,6 +105,7 @@ export default function WarehouseManage() {
       setName("");
       setQuantity("");
       setPrice("");
+      setCategoryId("");
     } catch (err) {
       console.error(err);
       setMessage({ text: "❌ Failed to add product", type: "error" });
@@ -84,42 +113,30 @@ export default function WarehouseManage() {
     setLoading(false);
   };
 
-  // update stock
+  /** Increase stock only */
   const handleStockUpdate = async (e) => {
     e.preventDefault();
     if (!selectedProduct || !quantity)
       return setMessage({ text: "Please fill all fields", type: "error" });
 
-    const productRef = doc(db, "products", selectedProduct);
-    const product = products.find((p) => p.id === selectedProduct);
-    let newQty =
-      activeTab === "increase"
-        ? product.quantity + Number(quantity)
-        : product.quantity - Number(quantity);
-    if (newQty < 0) newQty = 0;
+    const productRef = doc(db, "products", selectedProduct.id);
+    const newQty = selectedProduct.quantity + Number(quantity);
 
     setLoading(true);
     try {
       await updateDoc(productRef, { quantity: newQty });
 
-      // log history
       await addDoc(collection(db, "warehouse_history"), {
-        action:
-          activeTab === "increase" ? "Increased Stock" : "Reduced Stock",
-        productName: product.name,
+        action: "Increased Stock",
+        productName: selectedProduct.name,
         quantity: Number(quantity),
         timestamp: serverTimestamp(),
       });
 
-      setMessage({
-        text:
-          activeTab === "increase"
-            ? "✅ Stock increased"
-            : "✅ Stock reduced",
-        type: "success",
-      });
+      setMessage({ text: "✅ Stock increased", type: "success" });
+      setSelectedProduct(null);
+      setSearch("");
       setQuantity("");
-      setSelectedProduct("");
     } catch (err) {
       console.error(err);
       setMessage({ text: "❌ Update failed", type: "error" });
@@ -127,7 +144,7 @@ export default function WarehouseManage() {
     setLoading(false);
   };
 
-  // edit price (without logging history)
+  /** Edit Price */
   const handleEditPrice = async (e) => {
     e.preventDefault();
     if (!selectedProduct || !price)
@@ -135,12 +152,13 @@ export default function WarehouseManage() {
 
     setLoading(true);
     try {
-      const productRef = doc(db, "products", selectedProduct);
+      const productRef = doc(db, "products", selectedProduct.id);
       await updateDoc(productRef, { price: Number(price) });
 
       setMessage({ text: "✅ Price updated successfully", type: "success" });
       setPrice("");
-      setSelectedProduct("");
+      setSelectedProduct(null);
+      setSearch("");
     } catch (err) {
       console.error(err);
       setMessage({ text: "❌ Price update failed", type: "error" });
@@ -166,18 +184,14 @@ export default function WarehouseManage() {
         >
           Add Product
         </button>
+
         <button
           className={activeTab === "increase" ? "active" : ""}
           onClick={() => setActiveTab("increase")}
         >
           Increase Stock
         </button>
-        <button
-          className={activeTab === "decrease" ? "active" : ""}
-          onClick={() => setActiveTab("decrease")}
-        >
-          Reduce Stock
-        </button>
+
         <button
           className={activeTab === "editPrice" ? "active" : ""}
           onClick={() => setActiveTab("editPrice")}
@@ -188,6 +202,7 @@ export default function WarehouseManage() {
 
       {/* Form */}
       <div className="manage-card">
+        {/* ADD PRODUCT */}
         {activeTab === "add" && (
           <form onSubmit={handleAdd}>
             <input
@@ -196,77 +211,109 @@ export default function WarehouseManage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
+
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <option value="">Select Category</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+
             <input
               type="number"
               placeholder="Quantity"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
+
             <input
               type="number"
               placeholder="Price"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
             />
+
             <button type="submit" disabled={loading}>
               {loading ? "Adding..." : "Add Product"}
             </button>
           </form>
         )}
 
-        {(activeTab === "increase" || activeTab === "decrease") && (
-          <form onSubmit={handleStockUpdate}>
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-            >
-              <option value="">Select Product</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.quantity})
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder="Quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-            <button type="submit" disabled={loading}>
-              {loading
-                ? "Updating..."
-                : activeTab === "increase"
-                ? "Increase Stock"
-                : "Reduce Stock"}
-            </button>
-          </form>
-        )}
+        {/* AUTOCOMPLETE FIELD (USED BY BOTH INCREASE + EDIT PRICE) */}
+        {/* AUTOCOMPLETE FIELD (USED BY BOTH INCREASE + EDIT PRICE) */}
+{(activeTab === "increase" || activeTab === "editPrice") && (
+  <form
+    onSubmit={
+      activeTab === "increase"
+        ? handleStockUpdate
+        : handleEditPrice
+    }
+  >
+    {/* Autocomplete wrapper */}
+    <div className="autocomplete-container">
+      <input
+        type="text"
+        className="autocomplete-input"
+        placeholder="Search Product"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setSelectedProduct(null);
+        }}
+      />
 
-        {activeTab === "editPrice" && (
-          <form onSubmit={handleEditPrice}>
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
+      {/* Suggestions */}
+      {filtered.length > 0 && !selectedProduct && (
+        <div className="autocomplete-list">
+          {filtered.map((p) => (
+            <div
+              key={p.id}
+              className="autocomplete-item"
+              onClick={() => {
+                setSelectedProduct(p);
+                setSearch(p.name);
+                setFiltered([]);
+              }}
             >
-              <option value="">Select Product</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} (Current: {p.price})
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder="New Price"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-            <button type="submit" disabled={loading}>
-              {loading ? "Updating..." : "Update Price"}
-            </button>
-          </form>
-        )}
+              {p.name} — Qty: {p.quantity}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* Quantity for Increase */}
+    {activeTab === "increase" && (
+      <input
+        type="number"
+        placeholder="Quantity"
+        value={quantity}
+        onChange={(e) => setQuantity(e.target.value)}
+      />
+    )}
+
+    {/* Price for Edit */}
+    {activeTab === "editPrice" && (
+      <input
+        type="number"
+        placeholder="New Price"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+      />
+    )}
+
+    <button type="submit" disabled={loading}>
+      {loading
+        ? "Updating..."
+        : activeTab === "increase"
+        ? "Increase Stock"
+        : "Update Price"}
+    </button>
+  </form>
+)}
       </div>
 
       {/* Recent History */}

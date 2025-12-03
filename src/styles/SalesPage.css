@@ -1,6 +1,7 @@
+/* Page layout */
 .sales-page-container {
-  background: #f6f7fb;
-  padding: 16px;
+  background: #ffffff;
+  padding: 8px;
   min-height: calc(100vh - 60px);
 }
 
@@ -10,7 +11,7 @@
   gap: 20px;
 }
 
-/* Card style for each section */
+/* Card style */
 .sales-card {
   background: #ffffff;
   border-radius: 14px;
@@ -25,43 +26,104 @@
   color: #333;
 }
 
-/* Form Grid */
+/* Form wrapper */
 .sales-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+/* Form grid — makes rows flow into columns on wide screens */
 .form-grid {
   display: grid;
   gap: 14px;
+  grid-template-columns: 1fr; /* mobile: single column (each label is full row) */
 }
 
-label {
+/* Each label becomes a horizontal row: left label-text, right input */
+.form-grid > label {
   display: flex;
-  flex-direction: column;
-  font-size: 14px;
-  color: #444;
-  font-weight: 500;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
-input,
-select {
-  margin-top: 6px;
-  padding: 10px 12px;
+/* The left label text */
+.form-grid .label-text {
+  width: 120px;                 /* fixed left column width */
+  min-width: 110px;
+  font-size: 12px;
+  color: #444;
+  font-weight: 600;
+}
+
+/* Inputs and selects expand to fill remaining space */
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  flex: 1 1 auto;
+  margin: 0; /* margin handled by label gap */
+  padding: 6px 12px;
   border: 1px solid #ccc;
   border-radius: 10px;
   font-size: 14px;
   background: #fff;
+  box-sizing: border-box;
+}
+
+/* For the Product autocomplete wrapper, keep position relative */
+.autocomplete-label {
+  position: relative;
+}
+
+/* Suggestion list */
+.suggestion-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion-list li {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.suggestion-list li:hover {
+  background: #f3f4f6;
+}
+
+.suggestion-list .no-result {
+  color: #999;
+  text-align: center;
+  padding: 10px;
+  cursor: default;
+  font-style: italic;
 }
 
 /* Submit button */
 .sales-form button {
-  background-color: #5c3d99;
+  margin: auto;
+  background-color: #000000;
+  width: 70%;
   color: white;
   border: none;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 8px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -113,73 +175,38 @@ select {
   background-color: #1b5e20;
 }
 
-/* Responsive */
+/* Responsive breakpoints */
+/* from small -> 2 columns */
 @media (min-width: 600px) {
   .form-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
+/* larger screens -> 3 columns */
 @media (min-width: 900px) {
   .form-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
-/* 🔍 Product autocomplete suggestion list */
-.autocomplete-label {
-  position: relative;
-  display: block;
-}
 
-.suggestion-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: white;
-  border: 1px solid #ddd;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.suggestion-list li {
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  font-size: 0.95rem;
-  color: #333;
-}
-
-.suggestion-list li:hover {
-  background: #f3f4f6;
-}
-
-.suggestion-list .no-result {
-  color: #999;
-  text-align: center;
-  padding: 10px;
-  cursor: default;
-  font-style: italic;
-}
-
-/* Optional: make inputs match your other form fields */
+/* ensure autocomplete input uses available width inside label */
 .autocomplete-label input {
-  width: 95%;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  outline: none;
-  font-size: 0.95rem;
-  transition: border 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.autocomplete-label input:focus {
-  border-color: #4f46e5; /* Indigo tone, adjust to your theme */
+/* helper: keep long selects neat */
+/* select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+} */
+
+/* small visual polishing */
+label .hint {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 6px;
 }

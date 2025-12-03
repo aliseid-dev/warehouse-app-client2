@@ -79,3 +79,12 @@
   font-size: 0.95rem;
   margin-bottom: 0.25rem;
 }
+.overview-card.clickable {
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.overview-card.clickable:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+}

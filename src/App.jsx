@@ -8,8 +8,9 @@ import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import BottomNav from "./components/BottomNav";
+import SalesReport from "./pages/SalesReport";
 
-import "./styles/App.css"; // add this line for the CSS
+import "./styles/App.css";
 
 function App() {
   const location = useLocation();
@@ -19,7 +20,6 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Content wrapper with padding */}
       <div className="page-content">
         <Routes>
           {/* Public Routes */}
@@ -36,6 +36,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/store"
             element={
@@ -44,6 +45,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/sales"
             element={
@@ -52,6 +54,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Protect Sales Report */}
+          <Route
+            path="/sales-report"
+            element={
+              <ProtectedRoute>
+                <SalesReport />
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/dashboard"
             element={
@@ -61,7 +74,7 @@ function App() {
             }
           />
 
-          {/* Default Redirect */}
+          {/* Default redirect */}
           <Route path="/" element={<Navigate to="/warehouse" replace />} />
 
           {/* Catch-All */}
@@ -69,7 +82,6 @@ function App() {
         </Routes>
       </div>
 
-      {/* Bottom nav */}
       {!hideBottomNav && <BottomNav />}
     </div>
   );

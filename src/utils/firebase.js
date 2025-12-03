@@ -5,13 +5,12 @@ import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCQscghs9QwOXWwPC7G0eL-PLRuFKQXWNk",
-  authDomain: "flash-stock.firebaseapp.com",
-  projectId: "flash-stock",
-  storageBucket: "flash-stock.appspot.com", // ✅ fix here
-  messagingSenderId: "208424590915",
-  appId: "1:208424590915:web:9f79209597bdbba4b27ef6",
-  measurementId: "G-9DB8V9072N"
+  apiKey: "AIzaSyADeJA9BXp3d-6fOAwBERL0LKlSb_s-tF8",
+  authDomain: "warehouse-yas.firebaseapp.com",
+  projectId: "warehouse-yas",
+  storageBucket: "warehouse-yas.firebasestorage.app",
+  messagingSenderId: "925390333100",
+  appId: "1:925390333100:web:730851f8049fc9404cab09"
 };
 
 const app = initializeApp(firebaseConfig);

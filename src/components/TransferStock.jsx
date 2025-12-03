@@ -6,12 +6,13 @@ import {
   getDoc,
   getDocs,
   updateDoc,
-  setDoc,
+  addDoc,
   onSnapshot,
   query,
   orderBy,
   limit,
   serverTimestamp,
+  where,
 } from "firebase/firestore";
 import MessageBox from "./MessageBox";
 import "../styles/TransferStock.css";
@@ -27,62 +28,79 @@ export default function TransferStock() {
   const [recentTransfers, setRecentTransfers] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // ✅ Fetch warehouse products
+  // stores & selectedStore
+  const [stores, setStores] = useState([]);
+  const [selectedStore, setSelectedStore] = useState("");
+
+  // Fetch warehouse products (only with qty > 0)
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "products"), (snapshot) => {
+    const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
       const items = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((item) => item.quantity > 0);
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((item) => Number(item.quantity) > 0);
       setProducts(items);
       setFilteredProducts(items);
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  // ✅ Filter live as user types
+  // Fetch stores list
   useEffect(() => {
-    const queryText = search.toLowerCase();
+    const unsub = onSnapshot(collection(db, "stores"), (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setStores(list);
+    });
+    return () => unsub();
+  }, []);
 
-    if (!search.trim()) {
+  // Live filter for suggestions
+  useEffect(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) {
       setFilteredProducts(products);
       return;
     }
 
-    // If user already selected a product, hide suggestions
-    if (selectedProduct && selectedProduct.name.toLowerCase() === queryText) {
+    // if already selected same product, hide suggestions
+    if (selectedProduct && selectedProduct.name.toLowerCase() === q) {
       setShowSuggestions(false);
       return;
     }
 
     const results = products.filter((p) =>
-      p.name.toLowerCase().includes(queryText)
+      p.name.toLowerCase().includes(q)
     );
-
     setFilteredProducts(results);
   }, [search, products, selectedProduct]);
 
-  // ✅ Fetch recent transfer history
+  // Recent transfer history (latest 5)
   useEffect(() => {
     const q = query(
       collection(db, "transfer_history"),
       orderBy("timestamp", "desc"),
       limit(5)
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setRecentTransfers(snapshot.docs.map((doc) => doc.data()));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setRecentTransfers(snapshot.docs.map((d) => d.data()));
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  // ✅ Handle transfer
+  // Transfer handler
   const handleTransfer = async (e) => {
     e.preventDefault();
+    setMessage(null);
+
     const qty = Number(quantity);
+    if (!selectedStore) {
+      setMessage({ type: "error", text: "Please select a destination store." });
+      return;
+    }
 
     if (!selectedProduct || isNaN(qty) || qty <= 0) {
       setMessage({
         type: "error",
-        text: "Please select a product and enter a valid quantity",
+        text: "Please select a product and enter a valid quantity.",
       });
       return;
     }
@@ -90,55 +108,65 @@ export default function TransferStock() {
     setLoading(true);
 
     try {
+      // Get fresh warehouse product
       const productRef = doc(db, "products", selectedProduct.id);
       const productSnap = await getDoc(productRef);
 
       if (!productSnap.exists()) {
-        setMessage({ type: "error", text: "Product not found in warehouse" });
+        setMessage({ type: "error", text: "Product not found in warehouse." });
         setLoading(false);
         return;
       }
 
       const product = productSnap.data();
+      const warehouseQty = Number(product.quantity || 0);
 
-      if (qty > product.quantity) {
-        setMessage({ type: "error", text: "Not enough stock in warehouse" });
+      if (qty > warehouseQty) {
+        setMessage({ type: "error", text: "Not enough stock in warehouse." });
         setLoading(false);
         return;
       }
 
-      // ✅ Decrease warehouse stock
-      await updateDoc(productRef, { quantity: product.quantity - qty });
+      // decrease warehouse stock
+      await updateDoc(productRef, { quantity: warehouseQty - qty });
 
-      // ✅ Check if store already has this product
-      const storeProductsRef = collection(db, "storeProducts");
-      const snapshot = await getDocs(storeProductsRef);
-      const existingStoreProduct = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .find(
-          (p) => p.name.toLowerCase() === product.name.toLowerCase()
-        );
+      // target store products collection
+      const storeProductsRef = collection(db, "stores", selectedStore, "products");
 
-      if (existingStoreProduct) {
-        const storeRef = doc(db, "storeProducts", existingStoreProduct.id);
-        await updateDoc(storeRef, {
-          quantity: existingStoreProduct.quantity + qty,
+      // fetch store products and try to find by name (case-insensitive)
+      const storeSnap = await getDocs(storeProductsRef);
+      const existing = storeSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .find((p) => p.name && p.name.toLowerCase() === product.name.toLowerCase());
+
+      if (existing) {
+        // update existing product quantity
+        const storeProductRef = doc(db, "stores", selectedStore, "products", existing.id);
+        await updateDoc(storeProductRef, {
+          quantity: Number(existing.quantity || 0) + qty,
           transferredAt: serverTimestamp(),
+          categoryId: product.categoryId,
         });
       } else {
-        await setDoc(doc(collection(db, "storeProducts")), {
+        // add new product to store
+        await addDoc(storeProductsRef, {
           name: product.name,
+          nameLower: product.name.toLowerCase(),
           price: product.price ?? 0,
           quantity: qty,
           transferredAt: serverTimestamp(),
+          categoryId: product.categoryId,
         });
       }
 
-      // ✅ Log transfer history
-      await setDoc(doc(collection(db, "transfer_history")), {
+      // log transfer with store info
+      const storeMeta = stores.find((s) => s.id === selectedStore);
+      await addDoc(collection(db, "transfer_history"), {
         productId: selectedProduct.id,
         productName: product.name,
         quantity: qty,
+        storeId: selectedStore,
+        storeName: storeMeta?.name || "",
         timestamp: serverTimestamp(),
       });
 
@@ -148,11 +176,11 @@ export default function TransferStock() {
       setQuantity("");
       setShowSuggestions(false);
     } catch (err) {
-      console.error(err);
-      setMessage({ type: "error", text: "❌ Transfer failed" });
+      console.error("Transfer error:", err);
+      setMessage({ type: "error", text: "❌ Transfer failed." });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -165,7 +193,6 @@ export default function TransferStock() {
         />
       )}
 
-      {/* ✅ Transfer Form */}
       <form className="transfer-form" onSubmit={handleTransfer}>
         <label className="autocomplete-label">
           Warehouse Product
@@ -180,6 +207,7 @@ export default function TransferStock() {
             }}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            autoComplete="off"
           />
 
           {showSuggestions && search && filteredProducts.length > 0 && (
@@ -212,13 +240,27 @@ export default function TransferStock() {
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
         />
+        <label className="store-select-label">
+          Select Store
+          <select
+            value={selectedStore}
+            onChange={(e) => setSelectedStore(e.target.value)}
+          >
+            <option value="">Choose store</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name || s.id}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <button type="submit" disabled={loading}>
           {loading ? "Transferring..." : "Transfer Stock"}
         </button>
       </form>
 
-      {/* ✅ Recent Transfers */}
+      {/* Recent transfers */}
       <div className="recent-transfers">
         <h3>Recent Transfers</h3>
         {recentTransfers.length > 0 ? (
@@ -228,6 +270,9 @@ export default function TransferStock() {
                 <div className="transfer-info">
                   <strong>{t.productName}</strong>
                   <span>Qty: {t.quantity}</span>
+                  <div className="transfer-store">
+                    {t.storeName ? `→ ${t.storeName}` : ""}
+                  </div>
                 </div>
                 <div className="transfer-date">
                   {t.timestamp?.toDate
