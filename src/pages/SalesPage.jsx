@@ -1,5 +1,5 @@
 // src/pages/SalesPage.jsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { db } from "../utils/firebase";
 import {
   collection,
@@ -11,7 +11,7 @@ import {
   doc,
 } from "firebase/firestore";
 import Header from "../components/Header";
-import MessageBox from "../components/MessageBox";
+import { Toaster, toast } from "react-hot-toast";
 import ActionMenu from "../components/ActionMenu";
 import PaymentModal from "../components/PaymentModal";
 import "../styles/SalesPage.css";
@@ -39,8 +39,6 @@ export default function SalesPage() {
   const [paymentMethod, setPaymentMethod] = useState("cash");
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
-  const messageRef = useRef(null);
 
   const [sales, setSales] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -50,7 +48,7 @@ export default function SalesPage() {
   const [uniqueTins, setUniqueTins] = useState([]);
   const [uniqueContacts, setUniqueContacts] = useState([]);
 
-  // load stores
+  // Load stores
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "stores"), (snapshot) => {
       const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -59,7 +57,7 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, []);
 
-  // load products depending on source
+  // Load products depending on source
   useEffect(() => {
     if (!source) return;
 
@@ -82,7 +80,7 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, [source]);
 
-  // load sales + unique lists
+  // Load sales + unique lists
   useEffect(() => {
     const q = query(collection(db, "sales"), orderBy("timestamp", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -100,7 +98,7 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, []);
 
-  // auto-calc total
+  // Auto-calc total
   useEffect(() => {
     if (!totalManuallyEdited) {
       const prod = products.find((p) => p.id === selectedProduct);
@@ -110,7 +108,7 @@ export default function SalesPage() {
     }
   }, [selectedProduct, quantity, price, products, totalManuallyEdited]);
 
-  // sync product name input when selectedProduct changes
+  // Sync product name input when selectedProduct changes
   useEffect(() => {
     const prod = products.find((p) => p.id === selectedProduct);
     if (prod) {
@@ -119,19 +117,12 @@ export default function SalesPage() {
     }
   }, [selectedProduct, products]);
 
-  // scroll message into view
-  useEffect(() => {
-    if (message && messageRef.current) {
-      messageRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [message]);
-
   // Add sale handler
   const handleAddSale = async (e) => {
     e.preventDefault();
 
     if (!selectedProduct || !quantity || !customerName || total === 0) {
-      setMessage({ type: "error", text: "Please fill all required fields" });
+      toast.error("Please fill all required fields");
       return;
     }
 
@@ -150,7 +141,7 @@ export default function SalesPage() {
 
       const remainingQty = currentProduct.quantity - Number(quantity);
       if (remainingQty < 0) {
-        setMessage({ type: "error", text: "❌ Not enough stock available" });
+        toast.error("Not enough stock available");
         setLoading(false);
         return;
       }
@@ -173,12 +164,9 @@ export default function SalesPage() {
 
       await updateDoc(productRef, { quantity: remainingQty });
 
-      setMessage({
-        type: "success",
-        text: `✅ Sale recorded. Remaining stock: ${remainingQty}`,
-      });
+      toast.success(`Sale recorded. Remaining stock: ${remainingQty}`);
 
-      // reset
+      // Reset
       setSelectedProduct("");
       setProductSearch("");
       setQuantity("");
@@ -192,13 +180,13 @@ export default function SalesPage() {
       setTotalManuallyEdited(false);
     } catch (err) {
       console.error(err);
-      setMessage({ type: "error", text: "❌ Failed to record sale" });
+      toast.error("Failed to record sale");
     }
 
     setLoading(false);
   };
 
-  // confirm payment
+  // Confirm payment
   const handleConfirmPayment = async (paymentDate) => {
     if (!selectedSale) return;
     try {
@@ -207,10 +195,10 @@ export default function SalesPage() {
         amountPaid: selectedSale.total,
         paidAt: new Date(paymentDate),
       });
-      setMessage({ type: "success", text: "✅ Payment marked as paid" });
+      toast.success("Payment marked as paid");
     } catch (err) {
       console.error(err);
-      setMessage({ type: "error", text: "❌ Failed to update payment" });
+      toast.error("Failed to update payment");
     }
     setModalVisible(false);
     setSelectedSale(null);
@@ -218,7 +206,7 @@ export default function SalesPage() {
 
   const unpaidSales = sales.filter((s) => s.paymentStatus === "credit");
 
-  // pick product from suggestions
+  // Pick product from suggestions
   const pickProduct = (p) => {
     setSelectedProduct(p.id);
     setProductSearch(p.name);
@@ -240,22 +228,24 @@ export default function SalesPage() {
 
   return (
     <>
+      {/* React Hot Toaster */}
+      <Toaster
+  position="top-right"
+  reverseOrder={false}
+  toastOptions={{
+    duration: 4000, // 5 seconds
+    style: {
+      fontSize: "14px",
+    },
+  }}
+/>
+
       <div className="sales-header-wrapper">
         <Header title="Sales" />
       </div>
 
       <div className="sales-page-container">
         <div className="sales-page-content">
-          {message && (
-            <div ref={messageRef}>
-              <MessageBox
-                message={message.text}
-                type={message.type}
-                onClose={() => setMessage(null)}
-              />
-            </div>
-          )}
-
           {/* Record Sale */}
           <div className="sales-card">
             <h2>Record a Sale</h2>
@@ -424,7 +414,7 @@ export default function SalesPage() {
 
           {/* UNPAID SALES */}
           <div className="sales-card">
-            <h3>🧾 Unpaid Sales</h3>
+            <h3>‼️ Unpaid Sales</h3>
             {unpaidSales.length > 0 ? (
               <div className="sales-table-wrapper">
                 <table className="sales-table">
@@ -451,7 +441,7 @@ export default function SalesPage() {
                               setSelectedSale(s);
                               setModalVisible(true);
                             }}
-                            onDelete={() => alert("Delete sale not implemented yet")}
+                            onDelete={() => toast.error("Delete sale not implemented yet")}
                           />
                         </td>
                       </tr>
@@ -479,7 +469,7 @@ export default function SalesPage() {
 
           {/* RECENT SALES */}
           <div className="sales-card">
-            <h3>📊 Recent Sales</h3>
+            <h3>🟢 Recent Sales</h3>
 
             {sales.length > 0 ? (
               <div className="sales-table-wrapper">

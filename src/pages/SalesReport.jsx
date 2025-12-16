@@ -19,93 +19,94 @@ export default function SalesReport() {
   const [grandTotal, setGrandTotal] = useState(0);
 
   useEffect(() => {
-    loadCardTotals();  // Loads card totals only
+    loadCardTotals();
   }, [cardFilter]);
 
   useEffect(() => {
-    loadTableData(); // Loads table data only
+    loadTableData();
   }, [tableFilter]);
 
   // ============================
-  // 🔵 LOAD TOTALS FOR CARDS
+  // 🔵 LOAD TOTALS FOR SUMMARY CARDS
   // ============================
   const loadCardTotals = async () => {
-  try {
-    let start, end;
-    const now = new Date();
+    try {
+      let start, end;
+      const now = new Date();
 
-    if (cardFilter === "daily") {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      if (cardFilter === "daily") {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      }
+
+      if (cardFilter === "weekly") {
+        end = new Date();
+        start = new Date();
+        start.setDate(end.getDate() - 7);
+      }
+
+      if (cardFilter === "monthly") {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      }
+
+      const q = query(
+        collection(db, "sales"),
+        where("timestamp", ">=", start),
+        where("timestamp", "<=", end)
+      );
+
+      const snap = await getDocs(q);
+
+      let cash = 0;
+      let transfer = 0;
+
+      snap.docs.forEach((doc) => {
+        const sale = doc.data();
+        if (sale.paymentMethod === "cash") cash += sale.total;
+        if (sale.paymentMethod === "transfer") transfer += sale.total;
+      });
+
+      setCashTotal(cash);
+      setTransferTotal(transfer);
+      setGrandTotal(cash + transfer);
+    } catch (error) {
+      console.error("Error loading card totals:", error);
     }
-
-    if (cardFilter === "weekly") {
-      end = new Date();
-      start = new Date();
-      start.setDate(end.getDate() - 7);
-    }
-
-    if (cardFilter === "monthly") {
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    }
-
-    const q = query(
-      collection(db, "sales"),
-      where("timestamp", ">=", start),
-      where("timestamp", "<=", end)
-    );
-
-    const snap = await getDocs(q);
-
-    let cash = 0;
-    let transfer = 0;
-
-    snap.docs.forEach(doc => {
-      const sale = doc.data();
-      if (sale.paymentMethod === "cash") cash += sale.total;
-      if (sale.paymentMethod === "transfer") transfer += sale.total;
-    });
-
-    setCashTotal(cash);
-    setTransferTotal(transfer);
-    setGrandTotal(cash + transfer);
-
-  } catch (error) {
-    console.error("Error loading totals:", error);
-  }
-};
+  };
 
   // ============================
-  // 🔴 LOAD TABLE DATA
+  // 🔴 LOAD TABLE DATA ONLY
   // ============================
   const loadTableData = async () => {
     try {
       let q = collection(db, "sales");
       const now = new Date();
-      const todayStr = now.toISOString().split("T")[0];
+      const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
 
       if (tableFilter === "daily") {
         q = query(
           collection(db, "sales"),
-          where("timestamp", ">=", new Date(todayStr + " 00:00")),
-          where("timestamp", "<=", new Date(todayStr + " 23:59"))
+          where("timestamp", ">=", new Date(todayStr + "T00:00:00")),
+          where("timestamp", "<=", new Date(todayStr + "T23:59:59"))
         );
       }
 
       if (tableFilter === "weekly") {
         const start = new Date();
         start.setDate(now.getDate() - 7);
+
         q = query(
           collection(db, "sales"),
           where("timestamp", ">=", start),
-          where("timestamp", "<=", new Date())
+          where("timestamp", "<=", now)
         );
       }
 
       if (tableFilter === "monthly") {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59);
+
         q = query(
           collection(db, "sales"),
           where("timestamp", ">=", start),
@@ -116,8 +117,8 @@ export default function SalesReport() {
       if (tableFilter === "range" && fromDate && toDate) {
         q = query(
           collection(db, "sales"),
-          where("timestamp", ">=", new Date(fromDate + " 00:00")),
-          where("timestamp", "<=", new Date(toDate + " 23:59"))
+          where("timestamp", ">=", new Date(fromDate + "T00:00:00")),
+          where("timestamp", "<=", new Date(toDate + "T23:59:59"))
         );
       }
 
@@ -218,7 +219,7 @@ export default function SalesReport() {
       </div>
 
       {/* =========================== */}
-      {/* TABLE */}
+      {/* 🔴 SALES TABLE */}
       {/* =========================== */}
       <div className="table-wrapper">
         <table className="sales-table">
@@ -234,7 +235,7 @@ export default function SalesReport() {
           <tbody>
             {sales.length > 0 ? (
               sales.map((sale) => (
-                <tr key={sale.id} >
+                <tr key={sale.id}>
                   <td>{sale.timestamp.toLocaleDateString()}</td>
                   <td>{sale.customerName || "—"}</td>
                   <td>{sale.paymentMethod}</td>
