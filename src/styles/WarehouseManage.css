@@ -1,179 +1,181 @@
+/* --- Base Container --- */
 .warehouse-manage {
-  background: #f9f9fb;
+  max-width: 800px;
+  margin: 0 auto;
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: #f8fafc;
   min-height: 100vh;
-  
 }
 
-/* Tabs */
+/* --- Navigation Tabs --- */
 .manage-tabs {
   display: flex;
-  justify-content: space-around;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
-  padding: 10px;
+  background: #e2e8f0;
+  padding: 0.35rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  gap: 0.25rem;
 }
 
 .manage-tabs button {
   flex: 1;
-  padding: 10px;
+  padding: 0.75rem 0.5rem;
   border: none;
   background: transparent;
+  border-radius: 9px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #777;
+  color: #64748b;
   cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .manage-tabs button.active {
-  background: #5c3d99;
-  color: #fff;
+  background: white;
+  color: #2563eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Card section */
+/* --- Form Card --- */
 .manage-card {
-  background: #fff;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-  margin-bottom: 24px;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
 }
 
 .manage-card form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 1.25rem;
 }
 
-.manage-card input,
+.manage-card input, 
 .manage-card select {
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 15px;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 1rem;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
 }
 
-.manage-card button {
-  background: #5c3d99;
-  color: #fff;
+.manage-card input:focus, 
+.manage-card select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.manage-card button[type="submit"] {
+  background: #2563eb;
+  width: 75%;
+  color: white;
+  padding: 10px;
   border: none;
-  padding: 12px;
   border-radius: 25px;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
   transition: background 0.2s;
+  
 }
 
-.manage-card button:hover {
-  background: #4a2e7d;
+.manage-card button[type="submit"]:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
 }
 
-/* History */
-.history-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-}
-
-.history-section h3 {
-  margin-bottom: 15px;
-  font-size: 18px;
-  color: #333;
-}
-
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.history-item {
-  display: flex;
-  justify-content: space-between;
-  background: #f6f6f9;
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.history-item strong {
-  color: #5c3d99;
-}
-
-.history-qty {
-  color: #333;
-  font-weight: 600;
-}
-
-.no-history {
-  color: #777;
-  text-align: center;
-}
-/* Container */
+/* --- Autocomplete Styling --- */
 .autocomplete-container {
   position: relative;
-  width: 100%;
 }
 
-/* Input */
-.autocomplete-input {
-  width: 100%;
-  padding: 10px;
-  font-size: 15px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.autocomplete-input:focus {
-  border-color: #626eef;
-}
-
-/* Dropdown */
 .autocomplete-list {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: #ffffff;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  margin-top: 4px;
-  max-height: 250px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-top: 5px;
+  z-index: 50;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  z-index: 999;
 }
 
-/* Items */
 .autocomplete-item {
-  padding: 12px;
-  font-size: 14px;
+  padding: 0.85rem 1rem;
   cursor: pointer;
-  border-bottom: 1px solid #f3f3f3;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
 }
 
-.autocomplete-item:last-child {
-  border-bottom: none;
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background-color: #f8fafc; color: #2563eb; }
+
+/* --- History Section --- */
+.history-section h3 {
+  font-size: 1.1rem;
+  color: #1e293b;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
 }
 
-/* Hover / active state */
-.autocomplete-item:hover {
-  background: #eef1ff;
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.autocomplete-item.active {
-  background: #dfe4ff;
-  font-weight: 600;
+.history-item {
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 4px solid #3b82f6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
-/* Mobile */
-@media (max-width: 480px) {
-  .autocomplete-item {
-    padding: 14px;
-    font-size: 15px;
+.history-item strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.history-item p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.history-qty {
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+}
+
+/* --- Responsive Desktop Adjustments --- */
+@media (min-width: 640px) {
+  .warehouse-manage { padding: 2rem; }
+  .manage-tabs button { font-size: 0.95rem; }
+  
+  /* You can enable a 2-column grid for history on desktop if needed */
+  .history-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
   }
 }

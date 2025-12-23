@@ -1,185 +1,208 @@
-/* --- CONTAINER --- */
+/* --- Base Container --- */
 .sales-report-container {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-  font-family: "Inter", sans-serif;
+  padding: 1rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: #f8fafc;
+  min-height: 100vh;
 }
 
-/* --- HEADER --- */
-.sales-report-container h2 {
-  text-align: center;
-  margin-bottom: 20px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* --- PERIOD FILTER --- */
-.period-filter {
+/* --- Header & Store Selector --- */
+.report-header {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 25px;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.period-filter button {
-  padding: 10px 18px;
-  border-radius: 8px;
-  border: none;
-  background: #eaeaea;
-  cursor: pointer;
-  transition: 0.2s;
-  font-weight: 500;
-}
-
-.period-filter button:hover {
-  background: #d5d5d5;
-}
-
-.period-filter .active {
-  background: #0057ff;
-  color: white;
-  font-weight: 600;
-  box-shadow: 0 3px 10px rgba(0, 87, 255, 0.3);
-}
-
-/* --- SUMMARY CARDS --- */
-.summary-row {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 25px;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.summary-card {
-  flex: 1;
-  min-width: 28%;
-  background: white;
-  padding: 18px;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  text-align: center;
-}
-
-.summary-card h4 {
-  margin-bottom: 10px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #444;
-}
-
-.summary-card p {
-  font-size: 20px;
-  font-weight: bold;
+.report-header h2 {
+  font-size: 1.5rem;
+  color: #1e293b;
   margin: 0;
 }
 
-.summary-card.cash {
-  border-left: 6px solid #28a745;
-}
-.summary-card.transfer {
-  border-left: 6px solid #007bff;
-}
-.summary-card.total {
-  border-left: 6px solid #ff9800;
+.store-filter-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-/* --- FILTER ROW --- */
+.store-filter-box label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.store-select, .filter-select {
+  padding: 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: white;
+  font-size: 0.9rem;
+  color: #334155;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.store-select:focus {
+  border-color: #3b82f6;
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 1rem 0;
+}
+
+/* --- Period Filter Buttons --- */
+.period-filter {
+  display: flex;
+  background: #e2e8f0;
+  padding: 0.25rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.period-filter button {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.period-filter button.active {
+  background: white;
+  color: #2563eb;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* --- Summary Cards --- */
+.summary-row {
+  display: grid;
+  grid-template-columns: 1fr; /* Stack on mobile */
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.summary-card {
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #cbd5e1;
+}
+
+.summary-card h4 {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: #64748b;
+}
+
+.summary-card p {
+  margin: 0.5rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.summary-card.cash { border-left-color: #10b981; }
+.summary-card.transfer { border-left-color: #3b82f6; }
+.summary-card.total { border-left-color: #6366f1; background: #f5f3ff; }
+
+/* --- Table Filters --- */
 .filter-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.filter-select {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  min-width: 150px;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .date-range {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .date-range input {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
 }
 
 .date-range button {
-  padding: 10px 16px;
-  border: none;
-  background: #0057ff;
+  background: #2563eb;
   color: white;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: 0.2s;
+  border: none;
+  padding: 0.6rem;
+  border-radius: 6px;
+  font-weight: 600;
 }
 
-.date-range button:hover {
-  background: #0042c7;
-}
-
-/* --- TABLE --- */
+/* --- Sales Table --- */
 .table-wrapper {
-  overflow-x: auto;
+  background: white;
+  border-radius: 12px;
+  overflow-x: auto; /* Scroll table on small screens */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .sales-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
-}
-
-.sales-table th,
-.sales-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
+  min-width: 500px; /* Ensures table doesn't look crushed */
 }
 
 .sales-table th {
-  background: #f8f8f8;
-  font-weight: 600;
+  background: #f1f5f9;
+  text-align: left;
+  padding: 1rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #475569;
 }
 
-.sales-table tr:hover {
-  background: #f3f7ff;
+.sales-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.9rem;
+  color: #334155;
 }
+
+
 
 .empty-row {
   text-align: center;
-  padding: 20px !important;
-  color: #777;
+  padding: 3rem !important;
+  color: #94a3b8;
 }
 
-/* --- MOBILE RESPONSIVE --- */
-@media (max-width: 600px) {
+/* --- Responsive Adjustments --- */
+@media (min-width: 640px) {
+  .report-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
   .summary-row {
-    flex-direction: column;
-  }
-
-  .summary-card {
-    min-width: 100%;
-  }
-
-  .period-filter {
-    flex-wrap: wrap;
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .filter-row {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
   }
 
   .date-range {
-    flex-direction: column;
+    flex-direction: row;
   }
 }

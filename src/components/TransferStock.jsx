@@ -12,9 +12,8 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-  where,
 } from "firebase/firestore";
-import MessageBox from "./MessageBox";
+import { toast, Toaster } from "react-hot-toast";
 import "../styles/TransferStock.css";
 
 export default function TransferStock() {
@@ -24,15 +23,18 @@ export default function TransferStock() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [quantity, setQuantity] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
   const [recentTransfers, setRecentTransfers] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // stores & selectedStore
+  // Stores states
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState("");
 
-  // Fetch warehouse products (only with qty > 0)
+  // Modal states
+  const [showAllModal, setShowAllModal] = useState(false);
+  const [allTransfers, setAllTransfers] = useState([]);
+
+  // Fetch warehouse products
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "products"), (snapshot) => {
       const items = snapshot.docs
@@ -60,20 +62,17 @@ export default function TransferStock() {
       setFilteredProducts(products);
       return;
     }
-
-    // if already selected same product, hide suggestions
     if (selectedProduct && selectedProduct.name.toLowerCase() === q) {
       setShowSuggestions(false);
       return;
     }
-
     const results = products.filter((p) =>
       p.name.toLowerCase().includes(q)
     );
     setFilteredProducts(results);
   }, [search, products, selectedProduct]);
 
-  // Recent transfer history (latest 5)
+  // Recent transfer history (Listener)
   useEffect(() => {
     const q = query(
       collection(db, "transfer_history"),
@@ -86,34 +85,34 @@ export default function TransferStock() {
     return () => unsub();
   }, []);
 
-  // Transfer handler
+  // Fetch ALL history for the modal
+  const fetchAllHistory = async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, "transfer_history"), orderBy("timestamp", "desc"));
+      const snapshot = await getDocs(q);
+      setAllTransfers(snapshot.docs.map(d => d.data()));
+      setShowAllModal(true);
+    } catch (err) {
+      toast.error("Failed to load full history");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleTransfer = async (e) => {
     e.preventDefault();
-    setMessage(null);
-
     const qty = Number(quantity);
-    if (!selectedStore) {
-      setMessage({ type: "error", text: "Please select a destination store." });
-      return;
-    }
-
-    if (!selectedProduct || isNaN(qty) || qty <= 0) {
-      setMessage({
-        type: "error",
-        text: "Please select a product and enter a valid quantity.",
-      });
-      return;
-    }
+    if (!selectedStore) return toast.error("Please select a destination store.");
+    if (!selectedProduct || isNaN(qty) || qty <= 0) return toast.error("Please select a product and valid quantity.");
 
     setLoading(true);
-
     try {
-      // Get fresh warehouse product
       const productRef = doc(db, "products", selectedProduct.id);
       const productSnap = await getDoc(productRef);
 
       if (!productSnap.exists()) {
-        setMessage({ type: "error", text: "Product not found in warehouse." });
+        toast.error("Product not found.");
         setLoading(false);
         return;
       }
@@ -122,25 +121,20 @@ export default function TransferStock() {
       const warehouseQty = Number(product.quantity || 0);
 
       if (qty > warehouseQty) {
-        setMessage({ type: "error", text: "Not enough stock in warehouse." });
+        toast.error("Not enough stock.");
         setLoading(false);
         return;
       }
 
-      // decrease warehouse stock
       await updateDoc(productRef, { quantity: warehouseQty - qty });
 
-      // target store products collection
       const storeProductsRef = collection(db, "stores", selectedStore, "products");
-
-      // fetch store products and try to find by name (case-insensitive)
       const storeSnap = await getDocs(storeProductsRef);
       const existing = storeSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .find((p) => p.name && p.name.toLowerCase() === product.name.toLowerCase());
 
       if (existing) {
-        // update existing product quantity
         const storeProductRef = doc(db, "stores", selectedStore, "products", existing.id);
         await updateDoc(storeProductRef, {
           quantity: Number(existing.quantity || 0) + qty,
@@ -148,7 +142,6 @@ export default function TransferStock() {
           categoryId: product.categoryId,
         });
       } else {
-        // add new product to store
         await addDoc(storeProductsRef, {
           name: product.name,
           nameLower: product.name.toLowerCase(),
@@ -159,7 +152,6 @@ export default function TransferStock() {
         });
       }
 
-      // log transfer with store info
       const storeMeta = stores.find((s) => s.id === selectedStore);
       await addDoc(collection(db, "transfer_history"), {
         productId: selectedProduct.id,
@@ -170,14 +162,14 @@ export default function TransferStock() {
         timestamp: serverTimestamp(),
       });
 
-      setMessage({ type: "success", text: "✅ Stock transferred successfully!" });
+      toast.success("Stock transferred successfully!");
       setSearch("");
       setSelectedProduct(null);
       setQuantity("");
       setShowSuggestions(false);
     } catch (err) {
-      console.error("Transfer error:", err);
-      setMessage({ type: "error", text: "❌ Transfer failed." });
+      console.error(err);
+      toast.error("Transfer failed.");
     } finally {
       setLoading(false);
     }
@@ -185,13 +177,7 @@ export default function TransferStock() {
 
   return (
     <div className="transfer-stock-page">
-      {message && (
-        <MessageBox
-          message={message.text}
-          type={message.type}
-          onClose={() => setMessage(null)}
-        />
-      )}
+      <Toaster position="top-right" toastOptions={{ duration: 4000, style: { fontSize: "14px" } }} />
 
       <form className="transfer-form" onSubmit={handleTransfer}>
         <label className="autocomplete-label">
@@ -209,60 +195,36 @@ export default function TransferStock() {
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             autoComplete="off"
           />
-
           {showSuggestions && search && filteredProducts.length > 0 && (
             <ul className="suggestion-list">
               {filteredProducts.map((p) => (
-                <li
-                  key={p.id}
-                  onClick={() => {
-                    setSelectedProduct(p);
-                    setSearch(p.name);
-                    setShowSuggestions(false);
-                  }}
-                >
+                <li key={p.id} onClick={() => { setSelectedProduct(p); setSearch(p.name); setShowSuggestions(false); }}>
                   {p.name} ({p.quantity})
                 </li>
               ))}
             </ul>
           )}
-
-          {showSuggestions && search && filteredProducts.length === 0 && (
-            <ul className="suggestion-list">
-              <li className="no-result">No product found</li>
-            </ul>
-          )}
         </label>
 
-        <input
-          type="number"
-          placeholder="Quantity to transfer"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-        />
+        <input type="number" placeholder="Quantity to transfer" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+        
         <label className="store-select-label">
           Select Store
-          <select
-            value={selectedStore}
-            onChange={(e) => setSelectedStore(e.target.value)}
-          >
+          <select value={selectedStore} onChange={(e) => setSelectedStore(e.target.value)}>
             <option value="">Choose store</option>
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name || s.id}
-              </option>
-            ))}
+            {stores.map((s) => <option key={s.id} value={s.id}>{s.name || s.id}</option>)}
           </select>
         </label>
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Transferring..." : "Transfer Stock"}
-        </button>
+        <button type="submit" disabled={loading}>{loading ? "Transferring..." : "Transfer Stock"}</button>
       </form>
 
-      {/* Recent transfers */}
       <div className="recent-transfers">
-        <h3>Recent Transfers</h3>
+        <div className="section-header">
+          <h3>Recent Transfers</h3>
+          <button className="view-all-btn" onClick={fetchAllHistory}>View All</button>
+        </div>
+        
         {recentTransfers.length > 0 ? (
           <div className="transfer-list">
             {recentTransfers.map((t, i) => (
@@ -270,14 +232,10 @@ export default function TransferStock() {
                 <div className="transfer-info">
                   <strong>{t.productName}</strong>
                   <span>Qty: {t.quantity}</span>
-                  <div className="transfer-store">
-                    {t.storeName ? `→ ${t.storeName}` : ""}
-                  </div>
+                  <div className="transfer-store">{t.storeName ? `→ ${t.storeName}` : ""}</div>
                 </div>
                 <div className="transfer-date">
-                  {t.timestamp?.toDate
-                    ? t.timestamp.toDate().toLocaleString()
-                    : new Date().toLocaleString()}
+                  {t.timestamp?.toDate ? t.timestamp.toDate().toLocaleString() : "Just now"}
                 </div>
               </div>
             ))}
@@ -286,6 +244,41 @@ export default function TransferStock() {
           <p className="empty-text">No recent transfers</p>
         )}
       </div>
+
+      {/* ALL TIME TRANSFERS MODAL */}
+      {showAllModal && (
+        <div className="modal-overlay" onClick={() => setShowAllModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>All Time Transfers</h3>
+              <button className="close-btn" onClick={() => setShowAllModal(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <table className="history-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Store</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allTransfers.map((t, i) => (
+                    <tr key={i}>
+                      <td>{t.timestamp?.toDate ? t.timestamp.toDate().toLocaleDateString() : "-"}</td>
+                      <td><strong>{t.productName}</strong></td>
+                      <td>{t.quantity}</td>
+                      <td>{t.storeName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {allTransfers.length === 0 && <p className="empty-text">No records found.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

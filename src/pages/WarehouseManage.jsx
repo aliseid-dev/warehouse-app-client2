@@ -11,7 +11,7 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import MessageBox from "../components/MessageBox";
+import { toast, Toaster } from "react-hot-toast"; // 1. Added these
 import "../styles/WarehouseManage.css";
 
 export default function WarehouseManage() {
@@ -19,7 +19,6 @@ export default function WarehouseManage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [history, setHistory] = useState([]);
-  const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // form states
@@ -81,8 +80,10 @@ export default function WarehouseManage() {
   /** Add product */
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!name || !quantity || !price || !categoryId)
-      return setMessage({ text: "Please fill all fields", type: "error" });
+    if (!name || !quantity || !price || !categoryId) {
+      toast.error("Please fill all fields"); // 2. Trigger toast
+      return;
+    }
 
     setLoading(true);
     try {
@@ -101,14 +102,14 @@ export default function WarehouseManage() {
         timestamp: serverTimestamp(),
       });
 
-      setMessage({ text: "✅ Product added successfully", type: "success" });
+      toast.success("Product added successfully"); // 3. Success toast
       setName("");
       setQuantity("");
       setPrice("");
       setCategoryId("");
     } catch (err) {
       console.error(err);
-      setMessage({ text: "❌ Failed to add product", type: "error" });
+      toast.error("Failed to add product");
     }
     setLoading(false);
   };
@@ -116,8 +117,10 @@ export default function WarehouseManage() {
   /** Increase stock only */
   const handleStockUpdate = async (e) => {
     e.preventDefault();
-    if (!selectedProduct || !quantity)
-      return setMessage({ text: "Please fill all fields", type: "error" });
+    if (!selectedProduct || !quantity) {
+      toast.error("Please select a product and quantity");
+      return;
+    }
 
     const productRef = doc(db, "products", selectedProduct.id);
     const newQty = selectedProduct.quantity + Number(quantity);
@@ -133,13 +136,13 @@ export default function WarehouseManage() {
         timestamp: serverTimestamp(),
       });
 
-      setMessage({ text: "✅ Stock increased", type: "success" });
+      toast.success("Stock increased successfully");
       setSelectedProduct(null);
       setSearch("");
       setQuantity("");
     } catch (err) {
       console.error(err);
-      setMessage({ text: "❌ Update failed", type: "error" });
+      toast.error("Update failed");
     }
     setLoading(false);
   };
@@ -147,34 +150,39 @@ export default function WarehouseManage() {
   /** Edit Price */
   const handleEditPrice = async (e) => {
     e.preventDefault();
-    if (!selectedProduct || !price)
-      return setMessage({ text: "Please select a product and enter a price", type: "error" });
+    if (!selectedProduct || !price) {
+      toast.error("Please select a product and enter a price");
+      return;
+    }
 
     setLoading(true);
     try {
       const productRef = doc(db, "products", selectedProduct.id);
       await updateDoc(productRef, { price: Number(price) });
 
-      setMessage({ text: "✅ Price updated successfully", type: "success" });
+      toast.success("Price updated successfully");
       setPrice("");
       setSelectedProduct(null);
       setSearch("");
     } catch (err) {
       console.error(err);
-      setMessage({ text: "❌ Price update failed", type: "error" });
+      toast.error("Price update failed");
     }
     setLoading(false);
   };
 
   return (
     <div className="warehouse-manage">
-      {message && (
-        <MessageBox
-          message={message.text}
-          type={message.type}
-          onClose={() => setMessage(null)}
-        />
-      )}
+      {/* 4. Place the Toaster component at the top */}
+      <Toaster position="top-right" 
+      reverseOrder={false} 
+      toastOptions={{
+      duration: 4000, // 5 seconds
+      style: {
+      fontSize: "14px",
+    },
+  }}
+/>
 
       {/* Tabs */}
       <div className="manage-tabs">
@@ -202,7 +210,6 @@ export default function WarehouseManage() {
 
       {/* Form */}
       <div className="manage-card">
-        {/* ADD PRODUCT */}
         {activeTab === "add" && (
           <form onSubmit={handleAdd}>
             <input
@@ -242,78 +249,72 @@ export default function WarehouseManage() {
           </form>
         )}
 
-        {/* AUTOCOMPLETE FIELD (USED BY BOTH INCREASE + EDIT PRICE) */}
-        {/* AUTOCOMPLETE FIELD (USED BY BOTH INCREASE + EDIT PRICE) */}
-{(activeTab === "increase" || activeTab === "editPrice") && (
-  <form
-    onSubmit={
-      activeTab === "increase"
-        ? handleStockUpdate
-        : handleEditPrice
-    }
-  >
-    {/* Autocomplete wrapper */}
-    <div className="autocomplete-container">
-      <input
-        type="text"
-        className="autocomplete-input"
-        placeholder="Search Product"
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          setSelectedProduct(null);
-        }}
-      />
+        {(activeTab === "increase" || activeTab === "editPrice") && (
+          <form
+            onSubmit={
+              activeTab === "increase"
+                ? handleStockUpdate
+                : handleEditPrice
+            }
+          >
+            <div className="autocomplete-container">
+              <input
+                type="text"
+                className="autocomplete-input"
+                placeholder="Search Product"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setSelectedProduct(null);
+                }}
+              />
 
-      {/* Suggestions */}
-      {filtered.length > 0 && !selectedProduct && (
-        <div className="autocomplete-list">
-          {filtered.map((p) => (
-            <div
-              key={p.id}
-              className="autocomplete-item"
-              onClick={() => {
-                setSelectedProduct(p);
-                setSearch(p.name);
-                setFiltered([]);
-              }}
-            >
-              {p.name} — Qty: {p.quantity}
+              {filtered.length > 0 && !selectedProduct && (
+                <div className="autocomplete-list">
+                  {filtered.map((p) => (
+                    <div
+                      key={p.id}
+                      className="autocomplete-item"
+                      onClick={() => {
+                        setSelectedProduct(p);
+                        setSearch(p.name);
+                        setFiltered([]);
+                      }}
+                    >
+                      {p.name} — Qty: {p.quantity}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
 
-    {/* Quantity for Increase */}
-    {activeTab === "increase" && (
-      <input
-        type="number"
-        placeholder="Quantity"
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-      />
-    )}
+            {activeTab === "increase" && (
+              <input
+                type="number"
+                placeholder="Quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            )}
 
-    {/* Price for Edit */}
-    {activeTab === "editPrice" && (
-      <input
-        type="number"
-        placeholder="New Price"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-      />
-    )}
+            {activeTab === "editPrice" && (
+              <input
+                type="number"
+                placeholder="New Price"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            )}
 
-    <button type="submit" disabled={loading}>
-      {loading
-        ? "Updating..."
-        : activeTab === "increase"
-        ? "Increase Stock"
-        : "Update Price"}
-    </button>
-  </form>
-)}
+            <button type="submit" disabled={loading}>
+              {loading
+                ? "Updating..."
+                : activeTab === "increase"
+                ? "Increase Stock"
+                : "Update Price"}
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Recent History */}

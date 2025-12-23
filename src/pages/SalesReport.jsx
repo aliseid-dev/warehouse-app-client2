@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { db } from "../utils/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import "../styles/SalesReport.css";
 import { formatNumber } from "../lib/utils";
 
 export default function SalesReport() {
   const [sales, setSales] = useState([]);
+  const [stores, setStores] = useState([]);
+  
+  // 🟢 STORE FILTER (New)
+  const [selectedSource, setSelectedSource] = useState("all");
 
-  // 🔵 FILTER FOR CARDS ONLY
+  // 🔵 FILTER FOR CARDS
   const [cardFilter, setCardFilter] = useState("monthly");
 
-  // 🔴 FILTER FOR TABLE ONLY
+  // 🔴 FILTER FOR TABLE
   const [tableFilter, setTableFilter] = useState("monthly");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -19,13 +23,29 @@ export default function SalesReport() {
   const [transferTotal, setTransferTotal] = useState(0);
   const [grandTotal, setGrandTotal] = useState(0);
 
+  // Load Stores on mount
+  useEffect(() => {
+    const fetchStores = async () => {
+      try {
+        const snap = await getDocs(collection(db, "stores"));
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setStores(list);
+      } catch (err) {
+        console.error("Error fetching stores:", err);
+      }
+    };
+    fetchStores();
+  }, []);
+
+  // Re-run totals when timeframe or store changes
   useEffect(() => {
     loadCardTotals();
-  }, [cardFilter]);
+  }, [cardFilter, selectedSource]);
 
+  // Re-run table data when timeframe or store changes
   useEffect(() => {
     loadTableData();
-  }, [tableFilter]);
+  }, [tableFilter, selectedSource]);
 
   // ============================
   // 🔵 LOAD TOTALS FOR SUMMARY CARDS
@@ -38,25 +58,26 @@ export default function SalesReport() {
       if (cardFilter === "daily") {
         start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
         end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-      }
-
-      if (cardFilter === "weekly") {
+      } else if (cardFilter === "weekly") {
         end = new Date();
         start = new Date();
         start.setDate(end.getDate() - 7);
-      }
-
-      if (cardFilter === "monthly") {
+      } else {
         start = new Date(now.getFullYear(), now.getMonth(), 1);
         end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
       }
 
-      const q = query(
-        collection(db, "sales"),
+      let constraints = [
         where("timestamp", ">=", start),
         where("timestamp", "<=", end)
-      );
+      ];
 
+      // Add store filter if not "all"
+      if (selectedSource !== "all") {
+        constraints.push(where("source", "==", selectedSource));
+      }
+
+      const q = query(collection(db, "sales"), ...constraints);
       const snap = await getDocs(q);
 
       let cash = 0;
@@ -64,8 +85,8 @@ export default function SalesReport() {
 
       snap.docs.forEach((doc) => {
         const sale = doc.data();
-        if (sale.paymentMethod === "cash") cash += sale.total;
-        if (sale.paymentMethod === "transfer") transfer += sale.total;
+        if (sale.paymentMethod === "cash") cash += sale.total || 0;
+        if (sale.paymentMethod === "transfer") transfer += sale.total || 0;
       });
 
       setCashTotal(cash);
@@ -81,48 +102,38 @@ export default function SalesReport() {
   // ============================
   const loadTableData = async () => {
     try {
-      let q = collection(db, "sales");
       const now = new Date();
-      const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+      let start, end;
 
       if (tableFilter === "daily") {
-        q = query(
-          collection(db, "sales"),
-          where("timestamp", ">=", new Date(todayStr + "T00:00:00")),
-          where("timestamp", "<=", new Date(todayStr + "T23:59:59"))
-        );
-      }
-
-      if (tableFilter === "weekly") {
-        const start = new Date();
+        const todayStr = now.toISOString().split("T")[0];
+        start = new Date(todayStr + "T00:00:00");
+        end = new Date(todayStr + "T23:59:59");
+      } else if (tableFilter === "weekly") {
+        start = new Date();
         start.setDate(now.getDate() - 7);
-
-        q = query(
-          collection(db, "sales"),
-          where("timestamp", ">=", start),
-          where("timestamp", "<=", now)
-        );
+        end = now;
+      } else if (tableFilter === "monthly") {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59);
+      } else if (tableFilter === "range" && fromDate && toDate) {
+        start = new Date(fromDate + "T00:00:00");
+        end = new Date(toDate + "T23:59:59");
       }
 
-      if (tableFilter === "monthly") {
-        const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59);
-
-        q = query(
-          collection(db, "sales"),
-          where("timestamp", ">=", start),
-          where("timestamp", "<=", end)
-        );
+      let constraints = [];
+      if (start && end) {
+        constraints.push(where("timestamp", ">=", start));
+        constraints.push(where("timestamp", "<=", end));
       }
 
-      if (tableFilter === "range" && fromDate && toDate) {
-        q = query(
-          collection(db, "sales"),
-          where("timestamp", ">=", new Date(fromDate + "T00:00:00")),
-          where("timestamp", "<=", new Date(toDate + "T23:59:59"))
-        );
+      if (selectedSource !== "all") {
+        constraints.push(where("source", "==", selectedSource));
       }
 
+      // Note: If you use multiple where clauses + orderBy, 
+      // Firestore requires a composite index.
+      const q = query(collection(db, "sales"), ...constraints, orderBy("timestamp", "desc"));
       const snap = await getDocs(q);
 
       const list = snap.docs.map((doc) => ({
@@ -139,7 +150,29 @@ export default function SalesReport() {
 
   return (
     <div className="sales-report-container">
-      <h2>Sales Report</h2>
+      <div className="report-header">
+        <h2>Sales Report</h2>
+        
+        {/* 🟢 NEW STORE SELECTOR */}
+        <div className="store-filter-box">
+          <label>Select your store</label>
+          <select 
+            value={selectedSource} 
+            onChange={(e) => setSelectedSource(e.target.value)}
+            className="store-select"
+          >
+            <option value="all">All Locations</option>
+            <option value="warehouse">Warehouse</option>
+            {stores.map(store => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <hr className="divider" />
 
       {/* =========================== */}
       {/* 🔵 CARD FILTER BUTTONS */}
@@ -151,14 +184,12 @@ export default function SalesReport() {
         >
           Today
         </button>
-
         <button
           className={cardFilter === "weekly" ? "active" : ""}
           onClick={() => setCardFilter("weekly")}
         >
           Weekly
         </button>
-
         <button
           className={cardFilter === "monthly" ? "active" : ""}
           onClick={() => setCardFilter("monthly")}
@@ -173,17 +204,15 @@ export default function SalesReport() {
       <div className="summary-row">
         <div className="summary-card cash">
           <h4>Cash Total</h4>
-          <p>${formatNumber(cashTotal)}</p>
+          <p>{formatNumber(cashTotal)} ETB</p>
         </div>
-
         <div className="summary-card transfer">
           <h4>Bank Transfer</h4>
-          <p>${formatNumber(transferTotal)}</p>
+          <p>{formatNumber(transferTotal)} ETB</p>
         </div>
-
         <div className="summary-card total">
           <h4>Grand Total</h4>
-          <p>${formatNumber(grandTotal)}</p>
+          <p>{formatNumber(grandTotal)} ETB</p>
         </div>
       </div>
 
@@ -228,6 +257,7 @@ export default function SalesReport() {
             <tr>
               <th>Date</th>
               <th>Customer</th>
+              <th>Product</th>
               <th>Method</th>
               <th>Total</th>
             </tr>
@@ -239,14 +269,15 @@ export default function SalesReport() {
                 <tr key={sale.id}>
                   <td>{sale.timestamp.toLocaleDateString()}</td>
                   <td>{sale.customerName || "—"}</td>
-                  <td>{sale.paymentMethod}</td>
-                  <td>${formatNumber(sale.total)}</td>
+                  <td>{sale.productName || "—"}</td>
+                  <td className="method-badge">{sale.paymentMethod}</td>
+                  <td>{formatNumber(sale.total)} ETB</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="4" className="empty-row">
-                  No sales found
+                <td colSpan="5" className="empty-row">
+                  No sales found for this selection
                 </td>
               </tr>
             )}
