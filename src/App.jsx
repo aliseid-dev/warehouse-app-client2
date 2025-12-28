@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext"; 
-import ProductsPage from "./pages/ProductsPage"; // CHANGED: Imported ProductsPage
-import Store from "./pages/Store";
+import ProductsPage from "./pages/ProductsPage";
+import ManageInventory from "./pages/ManageInventory"; // ADDED: Your new component
 import SalesPage from "./pages/SalesPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
@@ -38,7 +38,6 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* --- ADMIN ONLY ROUTES --- */}
-          {/* UPDATED: Path is now /products and uses ProductsPage */}
           <Route
             path="/products"
             element={
@@ -48,11 +47,12 @@ function App() {
             }
           />
 
+          {/* CHANGED: Replaced Store with ManageInventory */}
           <Route
-            path="/store"
+            path="/manage-inventory"
             element={
               <ProtectedRoute adminOnly={true}>
-                <Store />
+                <ManageInventory />
               </ProtectedRoute>
             }
           />
@@ -104,11 +104,11 @@ function App() {
           />
 
           {/* Smart Redirect */}
-          {/* UPDATED: Admin now redirects to /products instead of /warehouse */}
+          {/* UPDATED: Admin now lands on /manage-inventory by default */}
           <Route 
             path="/" 
             element={
-              <Navigate to={role === "admin" ? "/products" : "/sales"} replace />
+              <Navigate to={role === "admin" ? "/manage-inventory" : "/sales"} replace />
             } 
           />
 

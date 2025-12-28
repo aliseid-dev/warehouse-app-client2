@@ -1,58 +1,85 @@
-.bottom-nav {
+.nav-container {
   position: fixed;
   bottom: 0;
   left: 0;
-  width: 100%; /* full width */
+  right: 0;
+  padding: 0 16px 24px 16px;
+  z-index: 9999;
   display: flex;
-  justify-content: space-around;
-  align-items: center;
-  background: #fff; /* solid white */
-  border-top: 1px solid #ddd;
-  padding: 10px 0;
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  justify-content: center;
 }
 
-.nav-item {
+.modern-bottom-nav {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+  padding: 0 6px;
+  overflow: hidden; /* Clips the highlight within the border radius */
+}
+
+/* The Sliding Highlight Pill */
+.nav-highlight {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  background: #000000;
+  border-radius: 16px;
+  transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.15);
+  z-index: 0;
+}
+
+.nav-btn {
+  position: relative;
+  z-index: 1; /* Sits above the highlight */
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 12px;
-  color: #666;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  color: #64748b;
+  transition: color 0.3s ease;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.nav-item .nav-icon {
-  font-size: 20px;
+.nav-icon-container {
+  font-size: 19px;
   margin-bottom: 2px;
+  transition: transform 0.3s ease;
 }
 
-.nav-item.active {
-  color: #5c3d99; /* primary color */
+.nav-text {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
-.nav-item.active .nav-icon {
-  font-size: 22px;
+/* Active State Styles */
+.nav-btn.active {
+  color: #ffffff; /* Text/Icon turns white when highlight is behind it */
 }
 
-.nav-item:hover {
-  color: #5c3d99;
+.nav-btn.active .nav-icon-container {
+  transform: scale(1.1);
 }
 
-.nav-item:hover .nav-icon {
-  transform: scale(1.2);
+/* Mobile Haptic-like interaction */
+.nav-btn:active .nav-icon-container {
+  transform: scale(0.85);
 }
 
-/* Tablet / Desktop adjustments */
-@media (min-width: 769px) {
-  .bottom-nav {
-    padding: 12px 0;
-  }
-  .nav-item .nav-icon {
-    font-size: 24px;
-  }
-  .nav-item.active .nav-icon {
-    font-size: 26px;
+@media (max-width: 350px) {
+  .nav-text {
+    display: none; /* Hide text on very small screens to prevent overlap */
   }
 }
