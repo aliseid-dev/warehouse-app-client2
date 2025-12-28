@@ -2,8 +2,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-body{
+body {
   font-family: "Red Hat Display", sans-serif;
+  /* Prevents side-scrolling on mobile if an element is slightly too wide */
+  overflow-x: hidden;
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -118,25 +120,22 @@ body{
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Crucial: Prevents padding from making elements wider than 100% */
+    box-sizing: border-box;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
+
   body {
     @apply bg-background text-foreground;
   }
 
-  /* --- ADD THIS TO PREVENT IOS ZOOM --- */
+  /* Fix for iOS Safari Zoom and Input Overflow */
   @media screen and (max-width: 850px) {
     input, 
     select, 
     textarea {
-      font-size: 16px !important;
+      font-size: 16px !important; /* Stop auto-zoom */
+      width: 100% !important;     /* Stay inside parents */
+      max-width: 100% !important; /* Safety rail */
     }
   }
 }
