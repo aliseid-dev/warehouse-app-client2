@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext"; 
-import WarehousePage from "./pages/WarehousePage";
+import ProductsPage from "./pages/ProductsPage"; // CHANGED: Imported ProductsPage
 import Store from "./pages/Store";
 import SalesPage from "./pages/SalesPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -11,7 +11,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import BottomNav from "./components/BottomNav";
 import SalesReport from "./pages/SalesReport";
 
-// IMPORT THE NEW PAGES HERE
 import SalesHistoryPage from "./pages/SalesHistoryPage"; 
 import UnpaidSalesPage from "./pages/UnpaidSalesPage";
 
@@ -39,11 +38,12 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* --- ADMIN ONLY ROUTES --- */}
+          {/* UPDATED: Path is now /products and uses ProductsPage */}
           <Route
-            path="/warehouse"
+            path="/products"
             element={
               <ProtectedRoute adminOnly={true}>
-                <WarehousePage />
+                <ProductsPage />
               </ProtectedRoute>
             }
           />
@@ -85,7 +85,6 @@ function App() {
             }
           />
 
-          {/* ADDED: Sales History Route */}
           <Route
             path="/sales-history"
             element={
@@ -95,7 +94,6 @@ function App() {
             }
           />
 
-          {/* ADDED: Unpaid Sales Route */}
           <Route
             path="/unpaid-sales"
             element={
@@ -106,14 +104,14 @@ function App() {
           />
 
           {/* Smart Redirect */}
+          {/* UPDATED: Admin now redirects to /products instead of /warehouse */}
           <Route 
             path="/" 
             element={
-              <Navigate to={role === "admin" ? "/warehouse" : "/sales"} replace />
+              <Navigate to={role === "admin" ? "/products" : "/sales"} replace />
             } 
           />
 
-          {/* Catch-All (This was triggering because the routes above were missing) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
