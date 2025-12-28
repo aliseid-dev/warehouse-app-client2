@@ -1,12 +1,24 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FaWarehouse, FaChartBar, FaStore, FaMoneyBillWave } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext'; // Import your hook
 import '../styles/BottomNav.css';
 
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { role, loading } = useAuth(); // Get role and loading state
+
   const currentPage = location.pathname.replace('/', '') || 'warehouse';
 
+  // 1. Don't render anything while checking the role to avoid UI "flicker"
+  if (loading) return null;
+
+  // 2. If the user is staff, hide the navigation entirely
+  if (role === 'staff') {
+    return null;
+  }
+
+  // 3. Only Admin sees this part
   return (
     <div className="bottom-nav">
       <div

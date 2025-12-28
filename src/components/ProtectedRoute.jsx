@@ -1,12 +1,18 @@
 import { Navigate } from "react-router-dom";
-import { auth } from "../utils/firebase";
-import { useAuthState } from "react-firebase-hooks/auth";
+import { useAuth } from "../context/AuthContext";
 
-export default function ProtectedRoute({ children }) {
-  const [user, loading] = useAuthState(auth);
+export default function ProtectedRoute({ children, adminOnly = false }) {
+  const { user, role, loading } = useAuth();
 
-  if (loading) return <p className="text-center mt-10">Loading...</p>;
+  if (loading) return null;
+
+  // If not logged in, go to login
   if (!user) return <Navigate to="/login" replace />;
+
+  // If page requires Admin but user is Staff, kick them to Sales
+  if (adminOnly && role === "staff") {
+    return <Navigate to="/sales" replace />;
+  }
 
   return children;
 }
