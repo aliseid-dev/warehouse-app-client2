@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "./context/AuthContext"; // Import your auth hook
+import { useAuth } from "./context/AuthContext"; 
 import WarehousePage from "./pages/WarehousePage";
 import Store from "./pages/Store";
 import SalesPage from "./pages/SalesPage";
@@ -11,13 +11,16 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import BottomNav from "./components/BottomNav";
 import SalesReport from "./pages/SalesReport";
 
+// IMPORT THE NEW PAGES HERE
+import SalesHistoryPage from "./pages/SalesHistoryPage"; 
+import UnpaidSalesPage from "./pages/UnpaidSalesPage";
+
 import "./styles/App.css";
 
 function App() {
   const location = useLocation();
-  const { role, loading } = useAuth(); // Get role and loading state
+  const { role, loading } = useAuth();
 
-  // 1. Important: Wait for auth to load before deciding on redirects
   if (loading) {
     return <div className="loading-screen">Loading System...</div>;
   }
@@ -36,7 +39,6 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* --- ADMIN ONLY ROUTES --- */}
-          {/* We pass adminOnly={true} to your ProtectedRoute component */}
           <Route
             path="/warehouse"
             element={
@@ -83,7 +85,27 @@ function App() {
             }
           />
 
-          {/* Smart Redirect: If staff, go to sales. If admin, go to warehouse */}
+          {/* ADDED: Sales History Route */}
+          <Route
+            path="/sales-history"
+            element={
+              <ProtectedRoute adminOnly={false}>
+                <SalesHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ADDED: Unpaid Sales Route */}
+          <Route
+            path="/unpaid-sales"
+            element={
+              <ProtectedRoute adminOnly={false}>
+                <UnpaidSalesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Smart Redirect */}
           <Route 
             path="/" 
             element={
@@ -91,7 +113,7 @@ function App() {
             } 
           />
 
-          {/* Catch-All */}
+          {/* Catch-All (This was triggering because the routes above were missing) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

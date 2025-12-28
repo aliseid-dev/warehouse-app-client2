@@ -210,3 +210,105 @@ label .hint {
   color: #888;
   margin-top: 6px;
 }
+.staff-header {
+  background: #000;
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid #f39c12;
+}
+
+.staff-profile { display: flex; align-items: center; gap: 10px; }
+.staff-avatar { background: #f39c12; color: #000; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.staff-label { font-size: 10px; color: #888; margin: 0; text-transform: uppercase; }
+.logout-link { background: none; border: none; color: #ff4d4d; font-size: 12px; cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px; }
+
+.shift-stats { text-align: right; display: flex; align-items: center; gap: 10px; }
+.stats-label { font-size: 10px; color: #888; margin: 0; }
+.stats-value { font-size: 16px; font-weight: bold; color: #2ecc71; margin: 0; }
+
+.quick-nav-pills { display: flex; gap: 10px; padding: 15px; background: #f9f9f9; }
+.pill { flex: 1; border: 1px solid #ddd; padding: 10px; border-radius: 10px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; }
+.pill.credit { color: #e74c3c; border-bottom: 3px solid #e74c3c; }
+.pill.history { color: #3498db; border-bottom: 3px solid #3498db; }
+
+.total-display { background: #f0f0f0 !important; font-weight: 800 !important; color: #000 !important; border: 2px solid #000 !important; }
+
+.form-actions { display: flex; gap: 10px; margin-top: 15px; }
+.reset-btn { flex: 1; background: #eee !important; color: #444 !important; border: 1px solid #ccc !important; }
+.submit-btn { flex: 2; background: #000 !important; color: #fff !important; }
+
+.low-stock-item { color: #e67e22; font-weight: bold; background: #fff5e6; }
+.no-data { padding: 40px; text-align: center; color: #888; font-style: italic; }
+
+/* Custom Modals for Unpaid & History */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7); /* Darken background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000; /* Ensure it's above everything */
+  padding: 20px;
+}
+
+.custom-modal-content.large {
+  background: white;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+}
+
+.modal-scroll-area {
+  overflow-y: auto; /* Enable scrolling for long lists */
+  flex: 1;
+}
+
+.close-icon-btn {
+  background: #f4f4f4;
+  border: none;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.close-icon-btn:hover {
+  background: #e0e0e0;
+}
+
+/* Status Labels for History */
+.status-pill {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.status-pill.paid { background: #e6ffed; color: #2ecc71; }
+.status-pill.credit { background: #fff5f5; color: #e74c3c; }
