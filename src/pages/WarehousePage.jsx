@@ -3,7 +3,6 @@ import Header from "../components/Header"; // <-- your existing header
 import ProductList from "../components/ProductList";
 import WarehouseManage from "../pages/WarehouseManage";
 import "../styles/WarehousePage.css";
-import "../styles/DashboardTabs.css";
 
 export default function WarehousePage() {
   const [activeTab, setActiveTab] = useState("products");

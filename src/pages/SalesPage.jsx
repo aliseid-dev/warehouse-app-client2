@@ -10,20 +10,22 @@ import {
   orderBy,
   updateDoc,
   doc,
+  getDoc,
 } from "firebase/firestore";
 import { Toaster, toast } from "react-hot-toast";
 import { 
   FaSignOutAlt, FaChartLine, FaHistory, 
-  FaExclamationCircle, FaTimes, FaMoneyBillWave, FaUniversity 
+  FaExclamationCircle, FaTimes, FaMoneyBillWave, FaUniversity, FaLock, FaUserClock 
 } from "react-icons/fa";
 import "../styles/SalesPage.css";
 import "../styles/Modal.css";
 
 export default function SalesPage() {
   const navigate = useNavigate();
-  const user = auth.currentUser; // Get logged in user
+  const user = auth.currentUser;
 
-  const [source, setSource] = useState("warehouse");
+  const [userData, setUserData] = useState(null);
+  const [source, setSource] = useState(""); 
   const [products, setProducts] = useState([]);
   const [stores, setStores] = useState([]);
 
@@ -44,27 +46,38 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(false);
   const [sales, setSales] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Modal Visibility States
   const [showUnpaidModal, setShowUnpaidModal] = useState(false);
   const [payingSale, setPayingSale] = useState(null); 
-
   const [uniqueNames, setUniqueNames] = useState([]);
   const [uniqueTins, setUniqueTins] = useState([]);
   const [uniqueContacts, setUniqueContacts] = useState([]);
 
-  // --- UPDATED: User-Specific Shift Total Logic ---
-  const todayTotal = sales
-    .filter((s) => {
-      const today = new Date().setHours(0, 0, 0, 0);
-      const isToday = (s.timestamp?.seconds * 1000 || Date.now()) >= today;
-      // Only include sales where the sellerId matches the current logged-in user
-      const isMine = s.sellerId === user?.uid;
-      return isToday && isMine;
-    })
-    .reduce((sum, s) => sum + (Number(s.total) || 0), 0);
+  // 1. Fetch User Profile
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          const profile = userSnap.data();
+          setUserData(profile);
+          
+          if (profile.role === "admin") {
+            setSource("warehouse"); 
+          } else {
+            setSource(profile.assignedStoreId || "");
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching user profile:", err);
+      }
+    };
+    fetchUserProfile();
+  }, [user]);
 
-  // Load stores
+  // 2. Load stores
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "stores"), (snapshot) => {
       setStores(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -72,9 +85,12 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, []);
 
-  // Load products depending on source
+  // 3. Load products (Only if source is valid)
   useEffect(() => {
-    if (!source) return;
+    if (!source) {
+        setProducts([]);
+        return;
+    }
     let colRef = source === "warehouse" ? collection(db, "products") : collection(db, "stores", source, "products");
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.quantity >= 0);
@@ -84,7 +100,7 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, [source]);
 
-  // Load sales + unique lists
+  // Load Sales Data
   useEffect(() => {
     const q = query(collection(db, "sales"), orderBy("timestamp", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -97,7 +113,15 @@ export default function SalesPage() {
     return () => unsubscribe();
   }, []);
 
-  // Auto-calc total
+  const todayTotal = sales
+    .filter((s) => {
+      const today = new Date().setHours(0, 0, 0, 0);
+      const isToday = (s.timestamp?.seconds * 1000 || Date.now()) >= today;
+      return isToday && s.sellerId === user?.uid;
+    })
+    .reduce((sum, s) => sum + (Number(s.total) || 0), 0);
+
+  // Auto-calculation logic
   useEffect(() => {
     if (!totalManuallyEdited) {
       const prod = products.find((p) => p.id === selectedProduct);
@@ -107,7 +131,6 @@ export default function SalesPage() {
     }
   }, [selectedProduct, quantity, price, products, totalManuallyEdited]);
 
-  // Sync inputs
   useEffect(() => {
     const prod = products.find((p) => p.id === selectedProduct);
     if (prod) {
@@ -125,6 +148,8 @@ export default function SalesPage() {
 
   const handleAddSale = async (e) => {
     e.preventDefault();
+    if (!source) return;
+
     if (!selectedProduct || !quantity || !customerName || total === 0) {
       toast.error("Please fill all required fields");
       return;
@@ -143,9 +168,9 @@ export default function SalesPage() {
       }
 
       await addDoc(collection(db, "sales"), {
-        sellerId: user?.uid, // Store the UID for user-specific tracking
+        sellerId: user?.uid,
         sellerEmail: user?.email,
-        source: source === "warehouse" ? "warehouse" : source,
+        source: source,
         productId: selectedProduct,
         productName: currentProduct.name,
         quantity: Number(quantity),
@@ -177,8 +202,7 @@ export default function SalesPage() {
   const handleConfirmPayment = async (method, dateString) => {
     if (!payingSale || isUpdating) return;
     setIsUpdating(true);
-    const loadingToastId = toast.loading("Processing payment...");
-
+    const loadingToastId = toast.loading("Processing...");
     try {
       const saleRef = doc(db, "sales", payingSale.id);
       await updateDoc(saleRef, {
@@ -187,8 +211,7 @@ export default function SalesPage() {
         paidAt: new Date(dateString),
         updatedAt: new Date()
       });
-      
-      toast.success(`Debt Cleared for ${payingSale.customerName}`, { id: loadingToastId });
+      toast.success(`Debt Cleared`, { id: loadingToastId });
       setPayingSale(null);
     } catch (error) {
       toast.error("Update failed", { id: loadingToastId });
@@ -210,17 +233,21 @@ export default function SalesPage() {
   };
 
   const unpaidSales = sales.filter((s) => s.paymentStatus === "credit");
+  const isLocked = !source && userData?.role !== "admin";
+  const currentStoreName = source === "warehouse" 
+    ? "Warehouse" 
+    : stores.find(s => s.id === source)?.name || "Unassigned";
 
   return (
     <div className="sh-page-container">
       <Toaster position="top-right" />
 
-      {/* --- STAFF HEADER --- */}
       <div className="staff-header">
         <div className="staff-profile">
           <div className="staff-avatar">{user?.email?.charAt(0).toUpperCase() || "S"}</div>
           <div>
-            <p className="staff-label">{user?.email || "Staff Member"}</p>
+            <p className="staff-label">{user?.email}</p>
+            <p className={`staff-store-tag ${isLocked ? "tag-locked" : ""}`}>📍 {currentStoreName}</p>
             <button onClick={handleLogout} className="logout-link"><FaSignOutAlt /> Logout</button>
           </div>
         </div>
@@ -228,41 +255,74 @@ export default function SalesPage() {
           <FaChartLine className="stats-icon" />
           <div>
             <p className="stats-label">My Sales Today</p>
-            <p className="stats-value">{todayTotal.toLocaleString()} ETB</p>
+            <p className="stats-value">{isLocked ? "---" : `${todayTotal.toLocaleString()} ETB`}</p>
           </div>
         </div>
       </div>
 
       <div className="sales-page-container">
-        <div className="quick-nav-pills">
-          <button className="pill credit" onClick={() => setShowUnpaidModal(true)}>
-            <FaExclamationCircle /> Unpaid ({unpaidSales.length})
+        
+        {isLocked && (
+            <div className="unassigned-banner">
+                <FaUserClock className="spin-icon" />
+                <div>
+                    <h4>Account Pending Assignment</h4>
+                    <p>Please wait for an administrator to assign you to a store location before you can view data or record sales.</p>
+                </div>
+            </div>
+        )}
+
+        {/* --- LOCKED NAVIGATION PILLS --- */}
+        <div className={`quick-nav-pills ${isLocked ? "nav-disabled" : ""}`}>
+          <button 
+            className="pill credit" 
+            onClick={() => !isLocked && setShowUnpaidModal(true)}
+            disabled={isLocked}
+          >
+            <FaExclamationCircle /> Unpaid ({isLocked ? "?" : unpaidSales.length})
           </button>
-          <button className="pill history" onClick={() => navigate("/sales-history")}>
+          <button 
+            className="pill history" 
+            onClick={() => !isLocked && navigate("/sales-history")}
+            disabled={isLocked}
+          >
             <FaHistory /> Sales History
           </button>
         </div>
 
         <div className="sales-page-content">
-          <div className="sales-card">
+          <div className={`sales-card ${isLocked ? "form-disabled" : ""}`}>
             <h2>Record a Sale</h2>
             <form onSubmit={handleAddSale} className="sales-form" autoComplete="off">
               <div className="form-grid">
-                <label><span className="label-text">Source</span>
-                  <select value={source} onChange={(e) => setSource(e.target.value)}>
-                    <option value="warehouse">Warehouse</option>
-                    {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                
+                <label>
+                  <span className="label-text">Source Inventory</span>
+                  {userData?.role === "admin" ? (
+                    <select value={source} onChange={(e) => setSource(e.target.value)}>
+                      <option value="warehouse">Warehouse</option>
+                      {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  ) : (
+                    <div className={`locked-source ${isLocked ? "pending" : ""}`}>
+                      {source ? <FaLock className="lock-icon" /> : <FaUserClock className="lock-icon" />}
+                      {currentStoreName}
+                    </div>
+                  )}
                 </label>
 
                 <label className="autocomplete-label">
                   <span className="label-text">Product</span>
                   <div style={{ width: "100%", position: "relative" }}>
-                    <input type="text" placeholder="Search product..." value={productSearch}
+                    <input 
+                      type="text" 
+                      placeholder={isLocked ? "Locked" : "Search product..."} 
+                      value={productSearch}
+                      disabled={isLocked}
                       onChange={(e) => { setProductSearch(e.target.value); setShowProductSuggestions(true); setSelectedProduct(""); }}
                       onFocus={() => setShowProductSuggestions(true)}
                     />
-                    {showProductSuggestions && productSearch && (
+                    {showProductSuggestions && productSearch && source && (
                       <ul className="suggestion-list">
                         {products.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase())).slice(0, 8).map((p) => (
                           <li key={p.id} onMouseDown={() => pickProduct(p)} className={p.quantity <= 5 ? "low-stock-item" : ""}>
@@ -274,16 +334,16 @@ export default function SalesPage() {
                   </div>
                 </label>
 
-                <label><span className="label-text">Quantity</span><input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label>
-                <label><span className="label-text">Price</span><input type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
-                <label><span className="label-text">Total</span><input type="text" value={`${total.toLocaleString()} ETB`} readOnly className="total-display" /></label>
-                <label><span className="label-text">Customer</span><input type="text" list="customerNames" value={customerName} onChange={(e) => onCustomerChange(e.target.value)} /><datalist id="customerNames">{uniqueNames.map((name, i) => <option key={i} value={name} />)}</datalist></label>
-                <label><span className="label-text">TIN</span><input type="text" list="tinNumbers" value={tinNumber} onChange={(e) => setTinNumber(e.target.value)} /><datalist id="tinNumbers">{uniqueTins.map((tin, i) => <option key={i} value={tin} />)}</datalist></label>
-                <label><span className="label-text">Contact</span><input type="text" list="contactList" value={contact} onChange={(e) => setContact(e.target.value)} /><datalist id="contactList">{uniqueContacts.map((c, i) => <option key={i} value={c} />)}</datalist></label>
+                <label><span className="label-text">Quantity</span><input type="number" disabled={isLocked} min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></label>
+                <label><span className="label-text">Price</span><input type="number" disabled={isLocked} min="0" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
+                <label><span className="label-text">Total</span><input type="text" value={isLocked ? "0 ETB" : `${total.toLocaleString()} ETB`} readOnly className="total-display" /></label>
+                <label><span className="label-text">Customer</span><input type="text" list="customerNames" disabled={isLocked} value={customerName} onChange={(e) => onCustomerChange(e.target.value)} /><datalist id="customerNames">{uniqueNames.map((name, i) => <option key={i} value={name} />)}</datalist></label>
+                <label><span className="label-text">TIN</span><input type="text" list="tinNumbers" disabled={isLocked} value={tinNumber} onChange={(e) => setTinNumber(e.target.value)} /><datalist id="tinNumbers">{uniqueTins.map((tin, i) => <option key={i} value={tin} />)}</datalist></label>
+                <label><span className="label-text">Contact</span><input type="text" list="contactList" disabled={isLocked} value={contact} onChange={(e) => setContact(e.target.value)} /><datalist id="contactList">{uniqueContacts.map((c, i) => <option key={i} value={c} />)}</datalist></label>
                 
                 <label>
                     <span className="label-text">Status</span>
-                    <select value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); if (e.target.value === "credit") setPaymentMethod("credit"); else setPaymentMethod("cash"); }}>
+                    <select disabled={isLocked} value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); if (e.target.value === "credit") setPaymentMethod("credit"); else setPaymentMethod("cash"); }}>
                         <option value="paid">Paid</option>
                         <option value="credit">Credit</option>
                     </select>
@@ -291,7 +351,7 @@ export default function SalesPage() {
 
                 <label>
                     <span className="label-text">Method</span>
-                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={paymentStatus === "credit"}>
+                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} disabled={isLocked || paymentStatus === "credit"}>
                         {paymentStatus === "credit" ? <option value="credit">N/A (Credit Sale)</option> : (
                             <>
                                 <option value="cash">Cash</option>
@@ -303,16 +363,18 @@ export default function SalesPage() {
               </div>
 
               <div className="form-actions">
-                <button type="button" onClick={resetForm} className="reset-btn">Clear Form</button>
-                <button type="submit" disabled={loading} className="submit-btn">{loading ? "Saving..." : "Record Sale"}</button>
+                <button type="button" onClick={resetForm} disabled={isLocked} className="reset-btn">Clear Form</button>
+                <button type="submit" disabled={loading || isLocked} className="submit-btn">
+                    {loading ? "Saving..." : source ? "Record Sale" : "Locked"}
+                </button>
               </div>
             </form>
           </div>
         </div>
       </div>
 
-      {/* --- UNPAID LIST MODAL --- */}
-      {showUnpaidModal && (
+      {/* MODALS (Will not trigger because buttons are disabled, but good to have safeguard) */}
+      {!isLocked && showUnpaidModal && (
         <div className="sh-modal-overlay">
           <div className="sh-modal-content large">
             <div className="sh-modal-top">
@@ -333,13 +395,11 @@ export default function SalesPage() {
                   ))}
                 </tbody>
               </table>
-              {unpaidSales.length === 0 && <p className="sh-empty-text">No unpaid sales found.</p>}
             </div>
           </div>
         </div>
       )}
 
-      {/* --- STREAMLINED PAYMENT CONFIRMATION MODAL --- */}
       {payingSale && (
         <div className="sh-modal-overlay" style={{ zIndex: 3000 }}>
           <div className="sh-modal-content">
@@ -353,12 +413,10 @@ export default function SalesPage() {
                 <div className="sh-info-row"><span className="sh-info-label">Item</span><span className="sh-info-value">{payingSale.productName}</span></div>
                 <div className="sh-info-row sh-total-row"><span className="sh-info-label">Total</span><span className="sh-info-total">{payingSale.total?.toLocaleString()} ETB</span></div>
               </div>
-
               <div className="sh-input-group">
                 <label>Received Date</label>
                 <input type="date" defaultValue={new Date().toISOString().split('T')[0]} id="paidDateInput" />
               </div>
-
               <div className="sh-payment-grid">
                 <button disabled={isUpdating} className="sh-method-btn sh-cash" onClick={() => handleConfirmPayment("cash", document.getElementById("paidDateInput").value)}>
                   <FaMoneyBillWave /> Cash
